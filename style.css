@@ -200,6 +200,8 @@ body {
     position: relative;
     line-height: 1.5;
     font-size: 0.95rem;
+    word-break: break-all;
+    overflow-wrap: break-word;
 }
 
 .message-bubble.me {

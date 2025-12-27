@@ -68,7 +68,12 @@ startBtn.addEventListener('click', () => joinRoom(generateRoomId()));
 
 window.addEventListener('load', () => {
     const rid = getRoomIdFromURL();
-    if (rid) joinRoom(rid);
+    if (rid) {
+        joinRoom(rid);
+    } else {
+        // อัตโนมัติสร้างห้องใหม่ทันทีถ้าไม่มี Room ID ใน URL
+        joinRoom(generateRoomId());
+    }
 });
 
 // ===== Large File Upload Logic (Cloud) =====
@@ -223,10 +228,37 @@ function renderMessage(data, id) {
     }
 
     if (data.text) {
-        // Detect URLs and make them clickable (except for the ones we already handled as file media)
-        let text = sanitize(data.text);
-        text = text.replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank" style="color:var(--accent); text-decoration:underline;">$1</a>');
-        contentHTML += `<div class="text-content" style="white-space: pre-wrap;">${text}</div>`;
+        // Strict match: message must be ONLY "xxxบาท" or "xxx บาท" from start to end
+        const strictPriceMatch = data.text.trim().match(/^(\d+(?:\.\d{1,2})?)\s*บาท$/);
+
+        if (strictPriceMatch) {
+            // It's ONLY the price: Show only QR Code
+            const amount = strictPriceMatch[1];
+            contentHTML += `
+                <div class="promptpay-container" style="margin-top: 12px; border-radius: 12px; overflow: hidden; background: #fff; padding: 15px; text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.2);">
+                    <div style="color: #1a1a1a; font-weight: 600; font-size: 0.85rem; margin-bottom: 10px; display: flex; align-items: center; justify-content: center; gap: 6px;">
+                        <span>💵 ชำระพร้อมเพย์:</span><span style="color: #0046b8; font-size: 1rem;">${amount} บาท</span>
+                    </div>
+                    <img src="https://promptpay.io/0988573074/${amount}.png" style="width: 100%; max-width: 180px; height: auto; display: block; margin: 0 auto; border: 1px solid #f0f0f0; border-radius: 4px;" alt="PromptPay QR Code">
+                    <div style="margin-top: 8px; font-size: 0.65rem; color: #666;">สแกนเพื่อชำระเงินได้ทันที</div>
+                    <hr style="border: none; border-top: 1px solid #eee; margin: 12px 10px;">
+                    <div style="display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; padding-bottom: 5px;">
+                        <img src="https://raw.githubusercontent.com/casperstack/thai-banks-logo/master/icons/KBANK.png" style="width: 18px; height: 18px; border-radius: 4px;" alt="KBANK">
+                        <img src="https://raw.githubusercontent.com/casperstack/thai-banks-logo/master/icons/SCB.png" style="width: 18px; height: 18px; border-radius: 4px;" alt="SCB">
+                        <img src="https://raw.githubusercontent.com/casperstack/thai-banks-logo/master/icons/BBL.png" style="width: 18px; height: 18px; border-radius: 4px;" alt="BBL">
+                        <img src="https://raw.githubusercontent.com/casperstack/thai-banks-logo/master/icons/KTB.png" style="width: 18px; height: 18px; border-radius: 4px;" alt="KTB">
+                        <img src="https://raw.githubusercontent.com/casperstack/thai-banks-logo/master/icons/BAY.png" style="width: 18px; height: 18px; border-radius: 4px;" alt="BAY">
+                        <img src="https://raw.githubusercontent.com/casperstack/thai-banks-logo/master/icons/TTB.png" style="width: 18px; height: 18px; border-radius: 4px;" alt="TTB">
+                        <img src="https://raw.githubusercontent.com/casperstack/thai-banks-logo/master/icons/GSB.png" style="width: 18px; height: 18px; border-radius: 4px;" alt="GSB">
+                    </div>
+                </div>
+            `;
+        } else {
+            // Regular message: Show text and URL links
+            let text = sanitize(data.text);
+            text = text.replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank" style="color:var(--accent); text-decoration:underline;">$1</a>');
+            contentHTML += `<div class="text-content" style="white-space: pre-wrap;">${text}</div>`;
+        }
     }
 
     contentHTML += `
