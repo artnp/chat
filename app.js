@@ -237,9 +237,10 @@ function renderMessage(data, id) {
             contentHTML += `
                 <div class="promptpay-container" style="margin-top: 12px; border-radius: 12px; overflow: hidden; background: #fff; padding: 15px; text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.2);">
                     <div style="color: #1a1a1a; font-weight: 600; font-size: 0.85rem; margin-bottom: 10px; display: flex; align-items: center; justify-content: center; gap: 6px;">
-                        <span>💵 ชำระพร้อมเพย์:</span><span style="color: #0046b8; font-size: 1rem;">${amount} บาท</span>
+                        <span>💵พร้อมเพย์ :</span><span style="color: #0046b8; font-size: 1rem;">${amount} บาท</span>
                     </div>
                     <img src="https://promptpay.io/0988573074/${amount}.png" style="width: 100%; max-width: 180px; height: auto; display: block; margin: 0 auto; border: 1px solid #f0f0f0; border-radius: 4px;" alt="PromptPay QR Code">
+                    <div style="font-size: 0.60rem; color: #666;">ID: 0988573074</div>
                     <div style="margin-top: 8px; font-size: 0.65rem; color: #666;">สแกนเพื่อชำระเงินได้ทันที</div>
                     <hr style="border: none; border-top: 1px solid #eee; margin: 12px 10px;">
                     <div style="display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; padding-bottom: 5px;">
