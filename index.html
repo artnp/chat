@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="th">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ระบบแชทปลอดภัย</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500&family=Kanit:wght@200;300;400&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <div class="app-container">
+        <!-- Sidebar: Large File Upload System -->
+        <aside class="sidebar">
+            <div class="sidebar-upload-container">
+                <div id="sidebarDropZone" class="sidebar-drop-zone">
+                    <div class="icon">📁</div>
+                    <p><strong>คลิกหรือวางไฟล์ใหญ่</strong><br><small>(>3MB)</small></p>
+                </div>
+                <div id="sidebarStatus" class="sidebar-status"></div>
+                <div id="sidebarProgressBar" class="sidebar-progress-bar">
+                    <div id="sidebarProgress" class="sidebar-progress"></div>
+                </div>
+                <input type="file" id="sidebarFileInput" hidden>
+            </div>
+        </aside>
+
+        <!-- Main Content: Chat Area (Supports <3MB Drop) -->
+        <main class="main-chat" id="chatDropZone">
+            <!-- Screen 1: Welcome -->
+            <div id="loginScreen" class="screen active">
+                <div class="welcome-box">
+                    <h1>ระบบแชทปลอดภัย</h1>
+                    <p>พื้นที่คุยส่วนตัว ข้อความหายไปใน 10 นาที</p>
+                    <button id="startBtn" class="btn-primary">เริ่มคุยทันที</button>
+                    <small style="color:var(--text-dim); display:block; margin-top:15px;">ลากไฟล์วางในแชทได้ทันที (จำกัด
+                        3MB)</small>
+                </div>
+            </div>
+
+            <!-- Screen 2: Chat Room -->
+            <div id="chatScreen" class="screen">
+                <header class="chat-header">
+                    <div class="room-status">
+                        <span class="dot"></span>
+                        <div id="shareLinkContainer" class="share-link-mini">
+                            <span id="shareLinkText">กำลังสร้างห้อง...</span>
+                            <button id="copyBtn">คัดลอก</button>
+                        </div>
+                    </div>
+                </header>
+
+                <div id="messagesContainer" class="messages-area">
+                    <div id="messagesWrapper"></div>
+                    <div id="dropOverlay" class="drop-overlay">
+                        <div class="drop-dashed-box">
+                            <span class="icon">📥</span>
+                            <p>วางไฟล์เพื่อส่งทันที</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="input-area">
+                    <div class="input-wrapper">
+                        <button id="inputAttachBtn" class="input-attach-btn" title="แนบไฟล์">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                                <path
+                                    d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"
+                                    stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                    stroke-linejoin="round" />
+                            </svg>
+                        </button>
+                        <textarea id="messageInput" placeholder="พิมพ์ข้อความที่นี่..." rows="1"></textarea>
+                        <button id="sendBtn" class="send-btn">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                                <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" stroke="currentColor" stroke-width="2"
+                                    stroke-linecap="round" stroke-linejoin="round" />
+                            </svg>
+                        </button>
+                        <button id="notifyBtn" class="notify-btn" title="เรียกคู่สนทนา">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                                <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+                            </svg>
+                        </button>
+                    </div>
+                    <input type="file" id="mainFileInput" hidden>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Firebase SDK -->
+    <script type="module" src="app.js"></script>
+</body>
+
+</html>
