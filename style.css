@@ -5,8 +5,8 @@
     --text-dim: #a8a8b3;
     --accent: #8257e5;
     --accent-glow: rgba(130, 87, 229, 0.3);
-    --bubble-me: #29292e;
-    --bubble-other: #202024;
+    --bubble-me: #3e3355;
+    --bubble-other: #161618;
     --border: #323238;
 }
 
@@ -346,6 +346,7 @@ body {
 .message-bubble.other {
     align-self: flex-start;
     background: var(--bubble-other);
+    border: 1px solid var(--border);
     border-bottom-left-radius: 2px;
 }
 
