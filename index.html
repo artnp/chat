@@ -15,20 +15,6 @@
 
 <body>
     <div class="app-container">
-        <!-- Sidebar: Large File Upload System -->
-        <aside class="sidebar">
-            <div class="sidebar-upload-container">
-                <div id="sidebarDropZone" class="sidebar-drop-zone">
-                    <div class="icon">📁</div>
-                    <p><strong>คลิกหรือวางไฟล์ใหญ่</strong><br><small>(>3MB)</small></p>
-                </div>
-                <div id="sidebarStatus" class="sidebar-status"></div>
-                <div id="sidebarProgressBar" class="sidebar-progress-bar">
-                    <div id="sidebarProgress" class="sidebar-progress"></div>
-                </div>
-                <input type="file" id="sidebarFileInput" hidden>
-            </div>
-        </aside>
 
         <!-- Main Content: Chat Area (Supports <3MB Drop) -->
         <main class="main-chat" id="chatDropZone">
@@ -38,8 +24,8 @@
                     <h1>ระบบแชทปลอดภัย</h1>
                     <p>พื้นที่คุยส่วนตัว ข้อความหายไปใน 10 นาที</p>
                     <button id="startBtn" class="btn-primary">เริ่มคุยทันที</button>
-                    <small style="color:var(--text-dim); display:block; margin-top:15px;">ลากไฟล์วางในแชทได้ทันที (จำกัด
-                        3MB)</small>
+                    <small style="color:var(--text-dim); display:block; margin-top:15px;">ลากไฟล์วางในแชทได้ทันที
+                        (รองรับไฟล์ขนาดใหญ่)</small>
                 </div>
             </div>
 
@@ -76,11 +62,6 @@
                             </svg>
                         </button>
                         <textarea id="messageInput" placeholder="พิมพ์ข้อความที่นี่..." rows="1"></textarea>
-                        <button id="sendBtn" class="send-btn">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                                <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" stroke="currentColor" stroke-width="2"
-                                    stroke-linecap="round" stroke-linejoin="round" />
-                            </svg>
                         </button>
                         <button id="notifyBtn" class="notify-btn" title="เรียกคู่สนทนา">
                             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -89,11 +70,30 @@
                                 <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
                             </svg>
                         </button>
+                        <button id="sendBtn" class="send-btn">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                                <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" stroke="currentColor" stroke-width="2"
+                                    stroke-linecap="round" stroke-linejoin="round" />
+                            </svg>
+
                     </div>
                     <input type="file" id="mainFileInput" hidden>
                 </div>
             </div>
         </main>
+    </div>
+
+    <!-- Global Upload Modal -->
+    <div id="uploadModal" class="upload-modal">
+        <div class="modal-content">
+            <div class="modal-icon">📤</div>
+            <h3>กำลังอัปโหลดไฟล์ใหญ่</h3>
+            <p id="modalFileName">file-name.zip</p>
+            <div class="modal-progress-container">
+                <div id="modalProgressBar" class="modal-progress-bar"></div>
+            </div>
+            <p id="modalStatus">0%</p>
+        </div>
     </div>
 
     <!-- Firebase SDK -->

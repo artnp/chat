@@ -32,12 +32,13 @@ const copyBtn = document.getElementById('copyBtn');
 const chatDropZone = document.getElementById('chatDropZone');
 const inputAttachBtn = document.getElementById('inputAttachBtn');
 const mainFileInput = document.getElementById('mainFileInput');
-const sidebarDropZone = document.getElementById('sidebarDropZone');
-const sidebarFileInput = document.getElementById('sidebarFileInput');
-const sidebarStatus = document.getElementById('sidebarStatus');
-const sidebarProgressBar = document.getElementById('sidebarProgressBar');
-const sidebarProgress = document.getElementById('sidebarProgress');
 const notifyBtn = document.getElementById('notifyBtn');
+
+// Large Upload Modal Elements
+const uploadModal = document.getElementById('uploadModal');
+const modalFileName = document.getElementById('modalFileName');
+const modalProgressBar = document.getElementById('modalProgressBar');
+const modalStatus = document.getElementById('modalStatus');
 
 // Sound for notification
 const NOTIFY_SOUND_URL = 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3';
@@ -74,67 +75,72 @@ window.addEventListener('load', () => {
 async function uploadToCloud(file) {
     if (!file) return;
 
-    sidebarStatus.textContent = 'กำลังเตรียมไฟล์: ' + (file.name.length > 20 ? file.name.substring(0, 17) + '...' : file.name);
-    sidebarProgressBar.style.display = 'block';
-    sidebarProgress.style.width = '0%';
+    // Setup Modal UI
+    modalFileName.textContent = file.name;
+    modalProgressBar.style.width = '0%';
+    modalStatus.textContent = '0%';
+    uploadModal.classList.add('active');
 
     try {
-        const form = new FormData();
-        form.append('files', file);
-        form.append('expiryHours', 1);
+        const formData = new FormData();
+        formData.append('files', file);
+        formData.append('expiryHours', 1);
 
-        const res = await fetch('https://tempfile.org/api/upload/local', {
-            method: 'POST',
-            body: form
-        });
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', 'https://tempfile.org/api/upload/local', true);
 
-        const data = await res.json();
+        // Progress Tracking
+        xhr.upload.onprogress = (e) => {
+            if (e.lengthComputable) {
+                const percent = Math.round((e.loaded / e.total) * 100);
+                modalProgressBar.style.width = percent + '%';
+                modalStatus.textContent = percent + '%';
+            }
+        };
 
-        if (data.success) {
-            const fileId = data.files[0].id;
-            const downloadUrl = `https://tempfile.org/${fileId}`;
-            const previewUrl = file.type.startsWith('image/') ? `https://tempfile.org/api/download/${fileId}` : downloadUrl;
+        xhr.onload = function () {
+            if (xhr.status === 200) {
+                const data = JSON.parse(xhr.responseText);
+                if (data.success) {
+                    const fileId = data.files[0].id;
+                    const downloadUrl = `https://tempfile.org/${fileId}`;
+                    const previewUrl = file.type.startsWith('image/') ? `https://tempfile.org/api/download/${fileId}` : downloadUrl;
 
-            sidebarStatus.textContent = 'ส่งสำเร็จ!';
-            sidebarProgress.style.width = '100%';
+                    // ส่งข้อมูลไฟล์ไปยัง Firebase
+                    sendMessage(`🔗 ดาวน์โหลด: ${downloadUrl}`, {
+                        name: file.name,
+                        type: file.type,
+                        data: previewUrl,
+                        shortUrl: downloadUrl,
+                        isExternal: true
+                    });
 
-            // ส่งข้อมูลไฟล์ไปยัง Firebase
-            sendMessage(`🔗 ดาวน์โหลด: ${downloadUrl}`, {
-                name: file.name,
-                type: file.type,
-                data: previewUrl,
-                shortUrl: downloadUrl,
-                isExternal: true
-            });
+                    // Close Modal
+                    setTimeout(() => {
+                        uploadModal.classList.remove('active');
+                    }, 800);
+                } else {
+                    alert('อัปโหลดล้มเหลว: ' + (data.message || 'Error'));
+                    uploadModal.classList.remove('active');
+                }
+            } else {
+                alert('เกิดข้อผิดพลาดในการอัปโหลด');
+                uploadModal.classList.remove('active');
+            }
+        };
 
-            setTimeout(() => {
-                sidebarStatus.textContent = '';
-                sidebarProgressBar.style.display = 'none';
-                sidebarProgress.style.width = '0%';
-            }, 3000);
-        } else {
-            sidebarStatus.textContent = 'ล้มเหลว: ' + (data.message || 'Error');
-        }
+        xhr.onerror = function () {
+            alert('ข้อผิดพลาดการเชื่อมต่อ');
+            uploadModal.classList.remove('active');
+        };
+
+        xhr.send(formData);
+
     } catch (err) {
         console.error(err);
-        sidebarStatus.textContent = 'ข้อผิดพลาดการเชื่อมต่อ';
+        uploadModal.classList.remove('active');
     }
 }
-
-// Sidebar Upload Listeners
-sidebarDropZone.onclick = () => sidebarFileInput.click();
-sidebarFileInput.onchange = (e) => uploadToCloud(e.target.files[0]);
-
-sidebarDropZone.ondragover = (e) => {
-    e.preventDefault();
-    sidebarDropZone.classList.add('active');
-};
-sidebarDropZone.ondragleave = () => sidebarDropZone.classList.remove('active');
-sidebarDropZone.ondrop = (e) => {
-    e.preventDefault();
-    sidebarDropZone.classList.remove('active');
-    if (e.dataTransfer.files.length > 0) uploadToCloud(e.dataTransfer.files[0]);
-};
 
 // ===== Chat Functions =====
 function initChatListeners() {
@@ -354,8 +360,7 @@ function handleFileUpload(file) {
         };
         reader.readAsDataURL(file);
     } else {
-        // Delegate to Cloud Upload
-        alert('ไฟล์มีขนาดใหญ่ (>3MB) ระบบกำลังอัพโหลดผ่านเซิร์ฟเวอร์สำรอง...');
+        // Delegate to Cloud Upload with UI
         uploadToCloud(file);
     }
 }
