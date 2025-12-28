@@ -283,7 +283,9 @@ function renderMessage(data, id) {
                         <span>💵พร้อมเพย์ :</span><span style="color: #0046b8; font-size: 1rem;">${amount} บาท</span>
                     </div>
                     <img src="https://promptpay.io/0988573074/${amount}.png" style="width: 100%; max-width: 180px; height: auto; display: block; margin: 0 auto; border: 1px solid #f0f0f0; border-radius: 4px;" alt="PromptPay QR Code">
-                    <div style="font-size: 0.60rem; color: #666;">ID: 0988573074</div>
+                    <div class="copyable-id" onclick="copyToClipboard('0988573074', event)" title="คลิกเพื่อคัดลอกเบอร์พร้อมเพย์">
+                        <div style="font-size: 0.60rem; color: #666; font-weight: 500;">ID: <span class="copy-number">0988573074</span></div>
+                    </div>
                     <div style="margin-top: 8px; font-size: 0.65rem; color: #666;">สแกนเพื่อชำระเงินได้ทันที</div>
                     <hr style="border: none; border-top: 1px solid #eee; margin: 12px 10px;">
                     <div style="display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; padding-bottom: 5px;">
@@ -532,7 +534,48 @@ copyBtn.addEventListener('click', () => {
     setTimeout(() => copyBtn.textContent = orig, 2000);
 });
 
+// Auto-select text on click for convenience
+messageInput.addEventListener('click', function () {
+    if (this.value.length > 0) this.select();
+});
+
+shareLinkText.addEventListener('click', function () {
+    const range = document.createRange();
+    range.selectNodeContents(this);
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+});
+
 messageInput.addEventListener('input', function () {
     this.style.height = 'auto';
     this.style.height = this.scrollHeight + 'px';
 });
+
+// Utility to copy to clipboard with toast feedback and visual selection
+window.copyToClipboard = function (text, event) {
+    if (event) {
+        event.stopPropagation();
+        // Visual selection feedback (Select only the number if .copy-number exists)
+        const target = event.currentTarget;
+        const numberSpan = target.querySelector('.copy-number');
+        const range = document.createRange();
+        range.selectNodeContents(numberSpan || target);
+        const sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(range);
+    }
+
+    navigator.clipboard.writeText(text).then(() => {
+        const toast = document.getElementById('copyToast');
+        if (toast) {
+            toast.textContent = `คัดลอกเบอร์ ${text} แล้ว!`;
+            toast.classList.add('show');
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 2500);
+        }
+    }).catch(err => {
+        console.error('Could not copy text: ', err);
+    });
+};

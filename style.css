@@ -659,3 +659,43 @@ body {
         border-radius: 0;
     }
 }
+
+.copyable-id {
+    cursor: pointer;
+    transition: all 0.2s ease;
+    padding: 2px 6px;
+    border-radius: 4px;
+    display: inline-block;
+}
+
+.copyable-id:hover {
+    background: rgba(0, 0, 0, 0.05);
+    color: var(--accent);
+}
+
+.copyable-id:active {
+    transform: scale(0.95);
+    background: rgba(0, 0, 0, 0.1);
+}
+
+/* Toast feedback for copying */
+.copy-toast {
+    position: fixed;
+    bottom: 30px;
+    left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: rgba(0, 0, 0, 0.8);
+    color: white;
+    padding: 10px 20px;
+    border-radius: 30px;
+    font-size: 0.9rem;
+    z-index: 10001;
+    opacity: 0;
+    transition: all 0.3s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+    pointer-events: none;
+}
+
+.copy-toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+}
