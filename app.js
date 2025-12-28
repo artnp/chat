@@ -86,63 +86,103 @@ async function uploadToCloud(file) {
     modalStatus.textContent = '0%';
     uploadModal.classList.add('active');
 
-    try {
-        const formData = new FormData();
-        formData.append('files', file);
-        formData.append('expiryHours', 1);
+    const isImage = file.type.startsWith('image/');
 
-        const xhr = new XMLHttpRequest();
-        xhr.open('POST', 'https://tempfile.org/api/upload/local', true);
+    // Helper for XHR Upload
+    const tryUpload = (url, formData, isLitterbox = false) => {
+        return new Promise((resolve, reject) => {
+            const xhr = new XMLHttpRequest();
+            xhr.open('POST', url, true);
 
-        // Progress Tracking
-        xhr.upload.onprogress = (e) => {
-            if (e.lengthComputable) {
-                const percent = Math.round((e.loaded / e.total) * 100);
-                modalProgressBar.style.width = percent + '%';
-                modalStatus.textContent = percent + '%';
-            }
-        };
-
-        xhr.onload = function () {
-            if (xhr.status === 200) {
-                const data = JSON.parse(xhr.responseText);
-                if (data.success) {
-                    const fileId = data.files[0].id;
-                    const downloadUrl = `https://tempfile.org/${fileId}`;
-                    const previewUrl = file.type.startsWith('image/') ? `https://tempfile.org/api/download/${fileId}` : downloadUrl;
-
-                    // ส่งข้อมูลไฟล์ไปยัง Firebase
-                    sendMessage(`🔗 ดาวน์โหลด: ${downloadUrl}`, {
-                        name: file.name,
-                        type: file.type,
-                        data: previewUrl,
-                        shortUrl: downloadUrl,
-                        isExternal: true
-                    });
-
-                    // Close Modal
-                    setTimeout(() => {
-                        uploadModal.classList.remove('active');
-                    }, 800);
-                } else {
-                    alert('อัปโหลดล้มเหลว: ' + (data.message || 'Error'));
-                    uploadModal.classList.remove('active');
+            // Progress Tracking
+            xhr.upload.onprogress = (e) => {
+                if (e.lengthComputable) {
+                    const percent = Math.round((e.loaded / e.total) * 100);
+                    modalProgressBar.style.width = percent + '%';
+                    modalStatus.textContent = percent + '%';
                 }
-            } else {
-                alert('เกิดข้อผิดพลาดในการอัปโหลด');
+            };
+
+            xhr.onload = function () {
+                if (xhr.status === 200) {
+                    if (isLitterbox) {
+                        const resultUrl = xhr.responseText.trim();
+                        if (resultUrl.startsWith('http')) {
+                            resolve({ downloadUrl: resultUrl, previewUrl: resultUrl });
+                        } else {
+                            reject(new Error('Litterbox response invalid'));
+                        }
+                    } else {
+                        try {
+                            const data = JSON.parse(xhr.responseText);
+                            if (data.success) {
+                                const fileId = data.files[0].id;
+                                const downloadUrl = `https://tempfile.org/${fileId}`;
+                                const previewUrl = isImage ? `https://tempfile.org/api/download/${fileId}` : downloadUrl;
+                                resolve({ downloadUrl, previewUrl });
+                            } else {
+                                reject(new Error(data.message || 'Empty response'));
+                            }
+                        } catch (e) {
+                            reject(new Error('JSON Parse Error'));
+                        }
+                    }
+                } else {
+                    reject(new Error('Status ' + xhr.status));
+                }
+            };
+
+            xhr.onerror = () => reject(new Error('Network Error'));
+            xhr.send(formData);
+        });
+    };
+
+    try {
+        let result = null;
+
+        // 1. ลอง Litterbox เป็นหลักสำหรับทุกไฟล์ (ผ่าน CORS Proxy)
+        const litterboxData = new FormData();
+        litterboxData.append('reqtype', 'fileupload');
+        litterboxData.append('time', '1h');
+        litterboxData.append('fileToUpload', file);
+
+        const LITTERBOX_API = 'https://litterbox.catbox.moe/resources/internals/api.php';
+        const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(LITTERBOX_API)}`;
+
+        try {
+            result = await tryUpload(proxyUrl, litterboxData, true);
+        } catch (err) {
+            console.warn('Litterbox upload failed, falling back to Tempfile...', err);
+            modalProgressBar.style.width = '0%';
+            modalStatus.textContent = 'ระบบหลักขัดข้อง... กำลังลองอัปโหลดสำรอง';
+        }
+
+        // 2. ถ้า Litterbox ล้มเหลว ให้ใช้ Tempfile เป็นตัวสำรอง (สำหรับทุกไฟล์)
+        if (!result) {
+            const tempfileData = new FormData();
+            tempfileData.append('files', file);
+            tempfileData.append('expiryHours', 1);
+
+            result = await tryUpload('https://tempfile.org/api/upload/local', tempfileData, false);
+        }
+
+        if (result) {
+            sendMessage(`🔗 ดาวน์โหลด: ${result.downloadUrl}`, {
+                name: file.name,
+                type: file.type,
+                data: result.previewUrl,
+                shortUrl: result.downloadUrl,
+                isExternal: true
+            });
+
+            // Close Modal
+            setTimeout(() => {
                 uploadModal.classList.remove('active');
-            }
-        };
-
-        xhr.onerror = function () {
-            alert('ข้อผิดพลาดการเชื่อมต่อ');
-            uploadModal.classList.remove('active');
-        };
-
-        xhr.send(formData);
-
+            }, 800);
+        }
     } catch (err) {
         console.error(err);
+        alert('อัปโหลดล้มเหลว: ' + err.message);
         uploadModal.classList.remove('active');
     }
 }
@@ -215,6 +255,9 @@ function renderMessage(data, id) {
             contentHTML += `
                 <div class="message-media-container" onclick="forceDownload('${linkUrl}', '${data.file.name}')">
                     <img src="${fileUrl}" class="message-img" alt="Image" onerror="handleImgError(this, '${linkUrl}', '${data.file.name}')">
+                    <div class="message-image-icon" onclick="openCropTool('${linkUrl}', event)">
+                        <img src="https://cdn-icons-png.flaticon.com/128/11771/11771746.png" alt="Crop" style="width: 18px; height: 18px; filter: invert(1);">
+                    </div>
                     <div class="download-overlay">คลิกเพื่อดาวน์โหลด</div>
                 </div>
             `;
@@ -264,7 +307,7 @@ function renderMessage(data, id) {
 
     contentHTML += `
         <div class="message-meta">
-            <span>ทำลายภายใน </span><span class="countdown">--:--</span>
+            <span>ทำลายทิ้งใน </span><span class="countdown">--:--</span>
         </div>
     `;
 
@@ -304,6 +347,43 @@ window.forceDownload = function (url, filename) {
         document.body.removeChild(link);
     }
 };
+
+// DOM Elements for Crop Modal
+const cropModal = document.getElementById('cropModal');
+const cropIframe = document.getElementById('cropIframe');
+const closeCropModal = document.getElementById('closeCropModal');
+
+// Function to open crop tool (cutpdf.html) in an in-page modal
+window.openCropTool = function (url, event) {
+    if (event) event.stopPropagation();
+
+    let targetUrl = '';
+    // If it's a Base64 string (starts with data:), it might be too long for a URL
+    if (url.startsWith('data:')) {
+        try {
+            sessionStorage.setItem('cropImageData', url);
+            targetUrl = `cutpdf.html?source=session`;
+        } catch (e) {
+            console.error('Failed to save to sessionStorage:', e);
+            targetUrl = `cutpdf.html?imgUrl=${encodeURIComponent(url.substring(0, 1000))}...`;
+            alert('ไฟล์มีขนาดใหญ่เกินไปสำหรับการอัพโหลดแบบ Modal');
+        }
+    } else {
+        targetUrl = `cutpdf.html?imgUrl=${encodeURIComponent(url)}`;
+    }
+
+    // Set iframe source and show modal
+    cropIframe.src = targetUrl;
+    cropModal.classList.add('active');
+};
+
+// Close Modal logic
+if (closeCropModal) {
+    closeCropModal.onclick = () => {
+        cropModal.classList.remove('active');
+        cropIframe.src = 'about:blank'; // Clear iframe to stop processes
+    };
+}
 
 function updateCountdowns() {
     const now = Date.now();
