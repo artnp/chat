@@ -282,7 +282,14 @@ function renderMessage(data, id) {
                     <div style="color: #1a1a1a; font-weight: 600; font-size: 0.85rem; margin-bottom: 10px; display: flex; align-items: center; justify-content: center; gap: 6px;">
                         <span>💵พร้อมเพย์ :</span><span style="color: #0046b8; font-size: 1rem;">${amount} บาท</span>
                     </div>
-                    <img src="https://promptpay.io/0988573074/${amount}.png" style="width: 100%; max-width: 180px; height: auto; display: block; margin: 0 auto; border: 1px solid #f0f0f0; border-radius: 4px;" alt="PromptPay QR Code">
+                    <div class="qr-container" onclick="downloadQRCode('https://promptpay.io/0988573074/${amount}.png', '${amount}')" title="คลิกเพื่อบันทึก QR Code">
+                        <img src="https://promptpay.io/0988573074/${amount}.png" class="qr-image" alt="PromptPay QR Code">
+                        <div class="qr-download-overlay">
+                            <div class="qr-download-icon">
+                                <img src="https://cdn-icons-png.flaticon.com/128/4196/4196713.png" style="width: 24px; height: 24px;" alt="Save">
+                            </div>
+                        </div>
+                    </div>
                     <div class="copyable-id" onclick="copyToClipboard('0988573074', event)" title="คลิกเพื่อคัดลอกเบอร์พร้อมเพย์">
                         <div style="font-size: 0.60rem; color: #666; font-weight: 500;">ID: <span class="copy-number">0988573074</span></div>
                     </div>
@@ -569,7 +576,7 @@ window.copyToClipboard = function (text, event) {
     navigator.clipboard.writeText(text).then(() => {
         const toast = document.getElementById('copyToast');
         if (toast) {
-            toast.textContent = `คัดลอกเบอร์ ${text} แล้ว!`;
+            toast.textContent = `คัดลอกบัญชีพร้อมเพย์: ${text}`;
             toast.classList.add('show');
             setTimeout(() => {
                 toast.classList.remove('show');
@@ -578,4 +585,33 @@ window.copyToClipboard = function (text, event) {
     }).catch(err => {
         console.error('Could not copy text: ', err);
     });
+};
+
+// Function to download QR Code image
+window.downloadQRCode = async function (url, amount) {
+    try {
+        // Use CORS proxy to ensure we can fetch as blob for direct download
+        const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(url)}`;
+        const response = await fetch(proxyUrl);
+
+        if (!response.ok) throw new Error('Network response was not ok');
+
+        const blob = await response.blob();
+        const blobUrl = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = blobUrl;
+        link.download = `PromptPay_${amount}_Baht.png`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(blobUrl);
+    } catch (err) {
+        console.warn('Proxy download failed, trying direct link as fallback...', err);
+        // Direct link fallback (might still open in new tab if CORS fails)
+        const link = document.createElement('a');
+        link.href = url;
+        link.target = '_blank';
+        link.download = `PromptPay_${amount}_Baht.png`;
+        link.click();
+    }
 };
