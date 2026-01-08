@@ -19,6 +19,7 @@ let currentRoom = null;
 let currentUser = 'User_' + Math.floor(Math.random() * 1000);
 const DELETION_TIME_MS = 10 * 60 * 1000; // 10 minutes
 const SMALL_MAX_SIZE = 3 * 1024 * 1024; // 3MB
+let pendingImageData = null; // Store pasted image data
 
 // DOM Elements
 const loginScreen = document.getElementById('loginScreen');
@@ -426,11 +427,18 @@ async function sendMessage(text = null, fileData = null) {
 
 sendBtn.onclick = async () => {
     const val = messageInput.value.trim();
-    if (val) {
+    
+    // Check if we have pending image data
+    if (pendingImageData) {
+        await sendMessage(val || null, pendingImageData);
+        // Clear the image preview
+        removeImagePreview();
+    } else if (val) {
         await sendMessage(val);
-        messageInput.value = '';
-        messageInput.style.height = 'auto';
     }
+    
+    messageInput.value = '';
+    messageInput.style.height = 'auto';
 };
 
 messageInput.addEventListener('keydown', (e) => {
@@ -558,6 +566,65 @@ messageInput.addEventListener('input', function () {
     this.style.height = 'auto';
     this.style.height = this.scrollHeight + 'px';
 });
+
+// ===== Paste Event Handler for Images =====
+messageInput.addEventListener('paste', function (e) {
+    const items = e.clipboardData.items;
+    
+    for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+        
+        if (item.type.indexOf('image') !== -1) {
+            e.preventDefault();
+            
+            const file = item.getAsFile();
+            if (file) {
+                // Convert image to base64 and store in pendingImageData
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    pendingImageData = {
+                        name: `pasted_image_${Date.now()}.png`,
+                        type: file.type,
+                        data: e.target.result
+                    };
+                    
+                    // Show image preview in input
+                    showImageInInput(e.target.result);
+                };
+                reader.readAsDataURL(file);
+            }
+            break;
+        }
+    }
+});
+
+// Function to display image in the input area
+function showImageInInput(imageSrc) {
+    // Create image preview element
+    const previewContainer = document.createElement('div');
+    previewContainer.className = 'image-preview-container';
+    previewContainer.innerHTML = `
+        <img src="${imageSrc}" class="image-preview" alt="Preview">
+        <button class="remove-image-btn" onclick="removeImagePreview()">×</button>
+    `;
+    
+    // Insert before the textarea
+    const inputWrapper = messageInput.parentElement;
+    inputWrapper.insertBefore(previewContainer, messageInput);
+    
+    // Add some visual feedback
+    messageInput.placeholder = "พิมพ์ข้อความเพิ่มเติม... (กด Enter เพื่อส่ง)";
+}
+
+// Function to remove image preview
+window.removeImagePreview = function() {
+    const preview = document.querySelector('.image-preview-container');
+    if (preview) {
+        preview.remove();
+        pendingImageData = null;
+        messageInput.placeholder = "พิมพ์ข้อความที่นี่...";
+    }
+};
 
 // Utility to copy to clipboard with toast feedback and visual selection
 window.copyToClipboard = function (text, event) {
