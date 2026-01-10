@@ -395,6 +395,27 @@ if (closeCropModal) {
     };
 }
 
+// Handle message from iframe (Crop Tool)
+window.addEventListener('message', (event) => {
+    if (event.data && event.data.type === 'CROP_DONE') {
+        // Close Modal
+        cropModal.classList.remove('active');
+        cropIframe.src = 'about:blank';
+
+        // Insert text into message input and auto-submit
+        if (messageInput && sendBtn) {
+            messageInput.value = event.data.text;
+            messageInput.style.height = 'auto';
+            messageInput.style.height = messageInput.scrollHeight + 'px';
+
+            // Auto-submit to chat
+            setTimeout(() => {
+                sendBtn.click();
+            }, 100);
+        }
+    }
+});
+
 function updateCountdowns() {
     const now = Date.now();
     document.querySelectorAll('.message-bubble').forEach(el => {
@@ -427,7 +448,7 @@ async function sendMessage(text = null, fileData = null) {
 
 sendBtn.onclick = async () => {
     const val = messageInput.value.trim();
-    
+
     // Check if we have pending image data
     if (pendingImageData) {
         await sendMessage(val || null, pendingImageData);
@@ -436,7 +457,7 @@ sendBtn.onclick = async () => {
     } else if (val) {
         await sendMessage(val);
     }
-    
+
     messageInput.value = '';
     messageInput.style.height = 'auto';
 };
@@ -570,13 +591,13 @@ messageInput.addEventListener('input', function () {
 // ===== Paste Event Handler for Images =====
 messageInput.addEventListener('paste', function (e) {
     const items = e.clipboardData.items;
-    
+
     for (let i = 0; i < items.length; i++) {
         const item = items[i];
-        
+
         if (item.type.indexOf('image') !== -1) {
             e.preventDefault();
-            
+
             const file = item.getAsFile();
             if (file) {
                 // Convert image to base64 and store in pendingImageData
@@ -587,7 +608,7 @@ messageInput.addEventListener('paste', function (e) {
                         type: file.type,
                         data: e.target.result
                     };
-                    
+
                     // Show image preview in input
                     showImageInInput(e.target.result);
                 };
@@ -607,17 +628,17 @@ function showImageInInput(imageSrc) {
         <img src="${imageSrc}" class="image-preview" alt="Preview">
         <button class="remove-image-btn" onclick="removeImagePreview()">×</button>
     `;
-    
+
     // Insert before the textarea
     const inputWrapper = messageInput.parentElement;
     inputWrapper.insertBefore(previewContainer, messageInput);
-    
+
     // Add some visual feedback
     messageInput.placeholder = "พิมพ์ข้อความเพิ่มเติม... (กด Enter เพื่อส่ง)";
 }
 
 // Function to remove image preview
-window.removeImagePreview = function() {
+window.removeImagePreview = function () {
     const preview = document.querySelector('.image-preview-container');
     if (preview) {
         preview.remove();
