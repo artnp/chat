@@ -586,6 +586,24 @@ shareLinkText.addEventListener('click', function () {
 messageInput.addEventListener('input', function () {
     this.style.height = 'auto';
     this.style.height = this.scrollHeight + 'px';
+
+    if (this.value.trim() === '@line') {
+        this.value = `ติดต่อฉันได้ที่:
+=================
+LINE : artap5321
+https://line.me/ti/p/gqIluRmdJ_
+
+Facebook:
+https://www.facebook.com/ImageTextEditor
+
+=================
+อ่านจบแล้วปิดหน้าเว็บนี้ได้เลย!!`;
+        this.style.height = 'auto';
+        this.style.height = this.scrollHeight + 'px';
+        setTimeout(() => sendBtn.click(), 100);
+    } else if (/^(\d+(?:\.\d{1,2})?)\s*บาท$/.test(this.value.trim())) {
+        setTimeout(() => sendBtn.click(), 100);
+    }
 });
 
 // ===== Paste Event Handler for Images =====
