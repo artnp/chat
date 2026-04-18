@@ -528,7 +528,10 @@ let dragCounter = 0;
 chatDropZone.addEventListener('dragenter', (e) => {
     e.preventDefault();
     dragCounter++;
-    chatDropZone.classList.add('dragging');
+    // แสดง overlay เฉพาะเมื่อลากไฟล์เข้ามา (ไม่ใช่ข้อความ)
+    if (e.dataTransfer.types.includes('Files')) {
+        chatDropZone.classList.add('dragging');
+    }
 });
 
 chatDropZone.addEventListener('dragover', (e) => {
@@ -548,8 +551,88 @@ chatDropZone.addEventListener('drop', (e) => {
 
     if (e.dataTransfer.files.length > 0) {
         handleFileUpload(e.dataTransfer.files[0]);
+    } else {
+        // รองรับลากข้อความจากแอปอื่นเข้ามาส่งในแชท
+        const droppedText = e.dataTransfer.getData('text/plain');
+        if (droppedText && droppedText.trim()) {
+            sendMessage(droppedText.trim());
+        }
     }
 });
+
+// ===== Screenshot Button =====
+const screenshotBtn = document.getElementById('screenshotBtn');
+if (screenshotBtn) {
+    let clipboardBefore = null; // เก็บ hash ของ clipboard ก่อนแคป เพื่อตรวจว่ามีภาพใหม่จริง
+
+    screenshotBtn.addEventListener('click', async () => {
+        // จำ clipboard เดิมไว้ก่อน เพื่อเปรียบเทียบว่าได้ภาพใหม่จริง
+        try {
+            const beforeItems = await navigator.clipboard.read();
+            for (const item of beforeItems) {
+                const imgType = item.types.find(t => t.startsWith('image/'));
+                if (imgType) {
+                    const blob = await item.getType(imgType);
+                    clipboardBefore = blob.size; // ใช้ size เป็น fingerprint
+                    break;
+                }
+            }
+        } catch (e) {
+            clipboardBefore = null;
+        }
+
+        // เปิด Windows Snip & Sketch
+        try {
+            window.open('ms-screenclip:', '_self');
+        } catch (e) { /* fallback: user กด Win+Shift+S เอง */ }
+
+        // UI feedback
+        screenshotBtn.style.opacity = '0.4';
+        screenshotBtn.style.pointerEvents = 'none';
+
+        // ดัก clipboard ทุก 500ms สูงสุด 60 วินาที เจอภาพใหม่ = ส่งทันที
+        let attempts = 0;
+        const clipCheck = setInterval(async () => {
+            attempts++;
+            if (attempts > 120) {
+                clearInterval(clipCheck);
+                screenshotBtn.style.opacity = '1';
+                screenshotBtn.style.pointerEvents = '';
+                return;
+            }
+            try {
+                const items = await navigator.clipboard.read();
+                for (const item of items) {
+                    const imageType = item.types.find(t => t.startsWith('image/'));
+                    if (imageType) {
+                        const blob = await item.getType(imageType);
+                        // ตรวจว่าเป็นภาพใหม่ ไม่ใช่ภาพเดิมที่อยู่ใน clipboard อยู่แล้ว
+                        if (clipboardBefore !== null && blob.size === clipboardBefore) {
+                            return; // ยังเป็นภาพเดิม รอต่อ
+                        }
+                        const reader = new FileReader();
+                        reader.onload = (ev) => {
+                            // ส่งเข้าแชทเลยทันที
+                            sendMessage(null, {
+                                name: `screenshot_${Date.now()}.png`,
+                                type: imageType,
+                                data: ev.target.result
+                            });
+                            clearInterval(clipCheck);
+                            screenshotBtn.style.opacity = '1';
+                            screenshotBtn.style.pointerEvents = '';
+                        };
+                        reader.readAsDataURL(blob);
+                        clearInterval(clipCheck); // หยุด loop ทันที
+                        return;
+                    }
+                }
+            } catch (e) {
+                // clipboard permission denied - ไม่เป็นไร รอ user Ctrl+V เอง
+            }
+        }, 500);
+    });
+}
 
 // ===== Utilities =====
 function sanitize(str) {
