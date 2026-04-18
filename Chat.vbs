@@ -33,14 +33,14 @@ psCode = "Add-Type -TypeDefinition @'" & vbCrLf & _
          "$tempProf = $env:TEMP + '\MiniChatEdge'" & vbCrLf & _
          "Start-Process 'msedge.exe' ""--app=$url"",""--window-size=$w,$h"",""--window-position=$x,$y"",""--user-data-dir=$tempProf""" & vbCrLf & _
          "$hwnd = [IntPtr]::Zero" & vbCrLf & _
-         "for ($i = 0; $i -lt 150; $i++) {" & vbCrLf & _
+         "for ($i = 0; $i -lt 300; $i++) {" & vbCrLf & _
          "    Start-Sleep -Milliseconds 100" & vbCrLf & _
          "    [W32]::EnumWindows({" & vbCrLf & _
          "        param($h, $l)" & vbCrLf & _
          "        if ([W32]::IsWindowVisible($h)) {" & vbCrLf & _
          "            $sb = [System.Text.StringBuilder]::new(256)" & vbCrLf & _
          "            [W32]::GetWindowText($h, $sb, 256) | Out-Null" & vbCrLf & _
-         "            if ($sb.ToString() -eq 'MiniChat') {" & vbCrLf & _
+         "            $t = $sb.ToString(); if ($t -eq 'MiniChat' -or $t -match 'artnp\.github\.io' -or $t -match 'ระบบแชทปลอดภัย') {" & vbCrLf & _
          "                $script:hwnd = $h" & vbCrLf & _
          "                return $false" & vbCrLf & _
          "            }" & vbCrLf & _

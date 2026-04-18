@@ -12,7 +12,7 @@
     <link
         href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500&family=Kanit:wght@200;300;400&display=swap"
         rel="stylesheet">
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="style.css?v=2">
 </head>
 
 <body>
@@ -43,6 +43,22 @@
                     </div>
                 </header>
 
+                <!-- Voice Broadcast Listener Bar -->
+                <div id="voiceListenerBar" class="voice-listener-bar hidden">
+                    <div class="voice-listener-inner">
+                        <div class="voice-wave-container">
+                            <span class="wave-bar"></span>
+                            <span class="wave-bar"></span>
+                            <span class="wave-bar"></span>
+                            <span class="wave-bar"></span>
+                            <span class="wave-bar"></span>
+                        </div>
+                        <span id="voiceListenerText" class="voice-listener-text">👽 กำลังรับเสียง...</span>
+                        <canvas id="voiceVisualizer" width="120" height="30" style="cursor:pointer;" title="คลิกเพื่อเปิดเสียง (หากไม่ได้ยิน)"></canvas>
+                    </div>
+                    <audio id="remoteAudio" autoplay></audio>
+                </div>
+
                 <div id="messagesContainer" class="messages-area">
                     <div id="messagesWrapper"></div>
                     <div id="dropOverlay" class="drop-overlay">
@@ -70,6 +86,8 @@
                             </svg>
                         </button>
                         <textarea id="messageInput" placeholder="พิมพ์ข้อความที่นี่..." rows="1"></textarea>
+                        <button id="micBtn" class="notify-btn voice-broadcast-btn" title="ถ่ายทอดเสียงสด" style="color:#8b5cf6;">
+                            <span style="font-size:18px; line-height:1;">📞</span>
                         </button>
                         <button id="notifyBtn" class="notify-btn" title="เรียกคู่สนทนา">
                             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"

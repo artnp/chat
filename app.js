@@ -9,7 +9,7 @@ const firebaseConfig = {
 };
 
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
-import { getDatabase, ref, push, onChildAdded, onChildRemoved, query, orderByChild, limitToLast, remove, get } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js';
+import { getDatabase, ref, push, onChildAdded, onChildRemoved, query, orderByChild, limitToLast, remove, get, set, onValue, onDisconnect as fbOnDisconnect } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js';
 
 const app = initializeApp(firebaseConfig);
 const database = getDatabase(app);
@@ -34,6 +34,7 @@ const chatDropZone = document.getElementById('chatDropZone');
 const inputAttachBtn = document.getElementById('inputAttachBtn');
 const mainFileInput = document.getElementById('mainFileInput');
 const notifyBtn = document.getElementById('notifyBtn');
+const micBtn = document.getElementById('micBtn');
 
 // Large Upload Modal Elements
 const uploadModal = document.getElementById('uploadModal');
@@ -56,7 +57,9 @@ function getRoomIdFromURL() {
 
 function joinRoom(roomId) {
     currentRoom = roomId;
-    window.history.pushState({}, '', '?room=' + roomId);
+    const searchParams = new window.URLSearchParams(window.location.search);
+    searchParams.set('room', roomId);
+    window.history.pushState({}, '', '?' + searchParams.toString());
     shareLinkText.textContent = window.location.href;
 
     loginScreen.classList.remove('active');
@@ -223,6 +226,18 @@ function initChatListeners() {
 
     // Countdown UI Update Loop
     setInterval(updateCountdowns, 1000);
+
+    // Listen for Voice Broadcast Offers
+    const voiceOfferRef = ref(database, `rooms/${currentRoom}/voice/offer`);
+    onValue(voiceOfferRef, (snap) => {
+        const offerData = snap.val();
+        if (offerData && offerData.sdp) {
+            startListening(offerData);
+        } else {
+            // Offer removed, stop listening
+            stopListening();
+        }
+    });
 }
 
 function renderMessage(data, id) {
@@ -234,7 +249,17 @@ function renderMessage(data, id) {
     // Special handle for notification type
     if (data.type === 'notification') {
         div.className = 'message-notification';
-        div.innerHTML = `🔔 คู่สนทนาเรียกคุณ...`;
+        if (data.text === '🔊') {
+            div.innerHTML = `👽 กำลังถ่ายทอดเสียงสด...`;
+            div.style.background = 'rgba(168, 85, 247, 0.15)';
+            div.style.color = '#c084fc';
+        } else if (data.text === '🔇') {
+            div.innerHTML = `🏁 สิ้นสุดการถ่ายทอดเสียงสด`;
+            div.style.background = 'rgba(239, 68, 68, 0.15)';
+            div.style.color = '#ef4444';
+        } else {
+            div.innerHTML = `🔔 คู่สนทนาเรียกคุณ...`;
+        }
         messagesWrapper.appendChild(div);
         scrollToBottom();
         return;
@@ -246,9 +271,9 @@ function renderMessage(data, id) {
 
     let contentHTML = '';
 
-    // Check for files (handles both Base64 and External URLs)
     if (data.file) {
         const isImage = data.file.type && data.file.type.startsWith('image/');
+        const isAudio = data.file.type && data.file.type.startsWith('audio/');
         const fileUrl = data.file.data;
         const linkUrl = data.file.shortUrl || fileUrl;
 
@@ -260,6 +285,12 @@ function renderMessage(data, id) {
                         <img src="https://cdn-icons-png.flaticon.com/128/11771/11771746.png" alt="Crop" style="width: 18px; height: 18px; filter: invert(1);">
                     </div>
                     <div class="download-overlay">คลิกเพื่อดาวน์โหลด</div>
+                </div>
+            `;
+        } else if (isAudio) {
+            contentHTML += `
+                <div style="margin-top: 5px; border-radius: 20px; overflow: hidden; background: rgba(0,0,0,0.05); padding: 5px; box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);">
+                    <audio controls src="${fileUrl}" style="max-width: 100%; height: 35px; outline: none;"></audio>
                 </div>
             `;
         } else {
@@ -804,3 +835,455 @@ window.downloadQRCode = async function (url, amount) {
         link.click();
     }
 };
+
+// ===== Live Voice Broadcast System (WebRTC + Alien Voice) =====
+
+const ICE_SERVERS = { iceServers: [
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'stun:stun1.l.google.com:19302' },
+    { urls: 'stun:stun2.l.google.com:19302' }
+]};
+
+let isBroadcasting = false;
+let broadcastPC = null;       // RTCPeerConnection for broadcaster
+let listenerPC = null;        // RTCPeerConnection for listener
+let broadcastStream = null;   // Original mic stream
+let broadcastAudioCtx = null; // AudioContext for voice effects
+let visualizerRAF = null;     // requestAnimationFrame ID for visualizer
+
+// DOM elements for broadcast
+const voiceListenerBar = document.getElementById('voiceListenerBar');
+const remoteAudio = document.getElementById('remoteAudio');
+const voiceVisualizer = document.getElementById('voiceVisualizer');
+
+// ===== Deep Villain / Scammer Voice Effect Chain =====
+function createScammerVoiceStream(stream) {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    broadcastAudioCtx = ctx;
+    const source = ctx.createMediaStreamSource(stream);
+    const destination = ctx.createMediaStreamDestination();
+
+    // 1. Terrifying Monster / Kidnapper Pitch-Shifter (Extreme Ring Modulation)
+    const villainOsc = ctx.createOscillator();
+    villainOsc.type = 'sine';
+    villainOsc.frequency.value = 30; // 30Hz creates an ultra-deep, slow, terrifying growl (Sub-bass)
+    
+    const ringModGain = ctx.createGain();
+    ringModGain.gain.value = 0; 
+    villainOsc.connect(ringModGain.gain);
+
+    // 2. Gritty Menacing Distortion (Makes it sound evil and harsh)
+    function makeGritCurve(amount) {
+      const k = amount;
+      const n = 44100;
+      const curve = new Float32Array(n);
+      for (let i = 0; i < n; ++i ) {
+        const x = i * 2 / n - 1;
+        curve[i] = (3 + k) * x * 20 * (Math.PI / 180) / (Math.PI + k * Math.abs(x));
+      }
+      return curve;
+    }
+    const distortion = ctx.createWaveShaper();
+    distortion.curve = makeGritCurve(25); // Heavy grit
+    distortion.oversample = '2x';
+
+    // 3. Massive Sub-Bass Boost (Makes the chest voice sound incredibly huge/inhuman)
+    const bassBoost = ctx.createBiquadFilter();
+    bassBoost.type = 'peaking';
+    bassBoost.frequency.value = 150; // Target the lowest chest frequencies
+    bassBoost.Q.value = 1.0;
+    bassBoost.gain.value = 25; // EXTREME bass boost (+25dB)
+
+    // 4. High-cut Filter (Muffles the voice to hide the original human tone entirely)
+    const highCut = ctx.createBiquadFilter();
+    highCut.type = 'lowpass';
+    highCut.frequency.value = 1000; // Ultra dark (cuts all high pitch)
+
+    // 5. ANTI-HOWLING Brickwall Limiter (Safety)
+    const limiter = ctx.createDynamicsCompressor();
+    limiter.threshold.value = -20; 
+    limiter.knee.value = 0; 
+    limiter.ratio.value = 20; 
+    limiter.attack.value = 0.001; 
+    limiter.release.value = 0.1;
+    
+    // 6. Safe Output Volume 
+    const masterGain = ctx.createGain();
+    masterGain.gain.value = 1.5; 
+
+    // Connection Chain
+    source.connect(ringModGain);    // Apply Sub-bass growl
+    ringModGain.connect(distortion); // Grit the growl
+    distortion.connect(bassBoost);  // Make the growl massive
+    bassBoost.connect(highCut);     // Darken the room
+    highCut.connect(limiter);       // Squash feedback limits
+    limiter.connect(masterGain);    
+    masterGain.connect(destination);
+
+    villainOsc.start(); // Start the dark engine
+
+    return destination.stream;
+}
+
+// ===== WebRTC Signaling via Firebase =====
+function getVoiceSignalRef() {
+    return ref(database, `rooms/${currentRoom}/voice`);
+}
+
+async function startBroadcast() {
+    if (!currentRoom) {
+        alert('กรุณาเข้าร่วมห้องแชทก่อน');
+        return;
+    }
+
+    try {
+        // Get mic
+        broadcastStream = await navigator.mediaDevices.getUserMedia({
+            audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+        });
+
+        // Apply Deep Scammer Effect
+        const activeStream = createScammerVoiceStream(broadcastStream);
+        
+        // VITAL: Browsers suspend AudioContexts if created after `await`. Must explicitly resume!
+        if (broadcastAudioCtx && broadcastAudioCtx.state === 'suspended') {
+            await broadcastAudioCtx.resume().catch(() => {});
+        }
+
+        // Create peer connection
+        broadcastPC = new RTCPeerConnection(ICE_SERVERS);
+
+        // Add the pure audio track
+        activeStream.getAudioTracks().forEach(track => {
+            broadcastPC.addTrack(track, activeStream);
+        });
+
+        // ICE Candidates → Firebase
+        broadcastPC.onicecandidate = (e) => {
+            if (e.candidate) {
+                const candidatesRef = ref(database, `rooms/${currentRoom}/voice/broadcasterCandidates`);
+                push(candidatesRef, e.candidate.toJSON());
+            }
+        };
+
+        // Create offer
+        const offer = await broadcastPC.createOffer();
+        await broadcastPC.setLocalDescription(offer);
+
+        // Write offer to Firebase
+        const voiceRef = getVoiceSignalRef();
+        await set(ref(database, `rooms/${currentRoom}/voice/offer`), {
+            type: offer.type,
+            sdp: offer.sdp,
+            broadcaster: currentUser,
+            timestamp: Date.now()
+        });
+
+        // Auto-cleanup on disconnect
+        fbOnDisconnect(voiceRef).remove();
+
+        let listenerCandidatesQueue = [];
+
+        // Listen for answer
+        onValue(ref(database, `rooms/${currentRoom}/voice/answer`), async (snap) => {
+            const answer = snap.val();
+            if (answer && broadcastPC && broadcastPC.signalingState === 'have-local-offer') {
+                await broadcastPC.setRemoteDescription(new RTCSessionDescription(answer));
+
+                // Process queued listener candidates
+                while(listenerCandidatesQueue.length > 0) {
+                    const c = listenerCandidatesQueue.shift();
+                    await broadcastPC.addIceCandidate(new RTCIceCandidate(c)).catch(() => {});
+                }
+            }
+        });
+
+        // Listen for listener ICE candidates immediately (queue if needed)
+        onChildAdded(
+            query(ref(database, `rooms/${currentRoom}/voice/listenerCandidates`)),
+            async (snap) => {
+                if (broadcastPC) {
+                    if (broadcastPC.remoteDescription) {
+                        await broadcastPC.addIceCandidate(new RTCIceCandidate(snap.val())).catch(() => {});
+                    } else {
+                        listenerCandidatesQueue.push(snap.val());
+                    }
+                }
+            }
+        );
+
+        // UI
+        isBroadcasting = true;
+        micBtn.classList.add('broadcasting');
+        micBtn.innerHTML = '<span style="font-size:18px; line-height:1;">⏹️</span>';
+        micBtn.title = "หยุดถ่ายทอดสด";
+        document.querySelector('.dot').classList.add('broadcasting');
+
+        // Notify in chat
+        const messagesRef = ref(database, `rooms/${currentRoom}/messages`);
+        await push(messagesRef, {
+            sender: currentUser,
+            type: 'notification',
+            text: '🔊',
+            timestamp: Date.now()
+        });
+
+    } catch (err) {
+        console.error('Broadcast error:', err);
+        alert('ไม่สามารถเปิดไมโครโฟนได้: ' + err.message);
+        stopBroadcast();
+    }
+}
+
+function stopBroadcast() {
+    // Close peer connection
+    if (broadcastPC) {
+        broadcastPC.close();
+        broadcastPC = null;
+    }
+
+    // Stop mic
+    if (broadcastStream) {
+        broadcastStream.getTracks().forEach(t => t.stop());
+        broadcastStream = null;
+    }
+
+    // Close audio context
+    if (broadcastAudioCtx && broadcastAudioCtx.state !== 'closed') {
+        broadcastAudioCtx.close();
+        broadcastAudioCtx = null;
+    }
+
+    // Clean Firebase signaling data
+    if (currentRoom) {
+        remove(ref(database, `rooms/${currentRoom}/voice`)).catch(() => {});
+        
+        // Notify in chat that broadcast stopped explicitly
+        // Only if it was currently broadcasting
+        if (isBroadcasting) {
+            const messagesRef = ref(database, `rooms/${currentRoom}/messages`);
+            push(messagesRef, {
+                sender: currentUser,
+                type: 'notification',
+                text: '🔇',
+                timestamp: Date.now()
+            }).catch(() => {});
+        }
+    }
+
+    // UI
+    isBroadcasting = false;
+    micBtn.classList.remove('broadcasting');
+    micBtn.innerHTML = '<span style="font-size:18px; line-height:1;">📞</span>';
+    micBtn.title = "ถ่ายทอดเสียงสด";
+    document.querySelector('.dot').classList.remove('broadcasting');
+}
+
+// ===== Listener Side =====
+function startListening(offerData) {
+    // Don't listen to your own broadcast
+    if (offerData.broadcaster === currentUser) return;
+
+    // Cleanup previous listener
+    if (listenerPC) {
+        listenerPC.close();
+        listenerPC = null;
+    }
+
+    listenerPC = new RTCPeerConnection(ICE_SERVERS);
+
+    // Receive audio
+    listenerPC.ontrack = (e) => {
+        if (e.streams && e.streams[0]) {
+            remoteAudio.srcObject = e.streams[0];
+            
+            // Explicit Autoplay Handling
+            const playPromise = remoteAudio.play();
+            if (playPromise !== undefined) {
+                playPromise.then(() => {
+                    if (document.getElementById('voiceListenerText')) {
+                        document.getElementById('voiceListenerText').innerHTML = "👽 กำลังรับเสียง...";
+                        document.getElementById('voiceListenerText').style.color = "#c084fc";
+                    }
+                }).catch(err => {
+                    console.warn("Autoplay blocked. User needs to tap.", err);
+                    if (document.getElementById('voiceListenerText')) {
+                        document.getElementById('voiceListenerText').innerHTML = "🔇 แตะหน้าจอบริเวณนี้เพื่อเปิดเสียง!";
+                        document.getElementById('voiceListenerText').style.color = "#ef4444";
+                    }
+                });
+            }
+
+            // Show listener bar
+            voiceListenerBar.classList.remove('hidden');
+
+            // Start visualizer
+            startVisualizer(e.streams[0]);
+        }
+    };
+
+    // ICE candidates → Firebase
+    listenerPC.onicecandidate = (e) => {
+        if (e.candidate) {
+            push(ref(database, `rooms/${currentRoom}/voice/listenerCandidates`), e.candidate.toJSON());
+        }
+    };
+
+    listenerPC.onconnectionstatechange = () => {
+        if (listenerPC && (listenerPC.connectionState === 'disconnected' || listenerPC.connectionState === 'failed' || listenerPC.connectionState === 'closed')) {
+            stopListening();
+        }
+    };
+
+    // Set remote description and create answer
+    (async () => {
+        try {
+            await listenerPC.setRemoteDescription(new RTCSessionDescription(offerData));
+            const answer = await listenerPC.createAnswer();
+            await listenerPC.setLocalDescription(answer);
+
+            await set(ref(database, `rooms/${currentRoom}/voice/answer`), {
+                type: answer.type,
+                sdp: answer.sdp
+            });
+
+            // Listen for broadcaster ICE candidates
+            onChildAdded(
+                query(ref(database, `rooms/${currentRoom}/voice/broadcasterCandidates`)),
+                async (snap) => {
+                    if (listenerPC && listenerPC.remoteDescription) {
+                        try {
+                            await listenerPC.addIceCandidate(new RTCIceCandidate(snap.val()));
+                        } catch (e) { /* ignore */ }
+                    }
+                }
+            );
+        } catch (err) {
+            console.error('Listener setup error:', err);
+        }
+    })();
+}
+
+function stopListening() {
+    if (listenerPC) {
+        listenerPC.close();
+        listenerPC = null;
+    }
+
+    remoteAudio.srcObject = null;
+    voiceListenerBar.classList.add('hidden');
+
+    if (visualizerRAF) {
+        cancelAnimationFrame(visualizerRAF);
+        visualizerRAF = null;
+    }
+
+    // Clear canvas
+    if (voiceVisualizer) {
+        const vCtx = voiceVisualizer.getContext('2d');
+        vCtx.clearRect(0, 0, voiceVisualizer.width, voiceVisualizer.height);
+    }
+}
+
+// ===== Audio Visualizer (Receiver) =====
+function startVisualizer(stream) {
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const analyser = audioCtx.createAnalyser();
+    analyser.fftSize = 64;
+    const source = audioCtx.createMediaStreamSource(stream);
+    source.connect(analyser);
+
+    const bufferLength = analyser.frequencyBinCount;
+    const dataArray = new Uint8Array(bufferLength);
+    const canvas = voiceVisualizer;
+    const ctx = canvas.getContext('2d');
+    const barWidth = canvas.width / bufferLength;
+
+    function draw() {
+        visualizerRAF = requestAnimationFrame(draw);
+        analyser.getByteFrequencyData(dataArray);
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        for (let i = 0; i < bufferLength; i++) {
+            const barHeight = (dataArray[i] / 255) * canvas.height;
+            const hue = 270 + (i / bufferLength) * 60; // Purple to pink
+            ctx.fillStyle = `hsla(${hue}, 80%, 65%, 0.9)`;
+            ctx.fillRect(i * barWidth, canvas.height - barHeight, barWidth - 1, barHeight);
+        }
+    }
+
+    draw();
+}
+
+// ===== Watch for Voice Signals (Listener auto-detect) =====
+function initVoiceListener() {
+    if (!currentRoom) return;
+
+    // Watch for new broadcast offers
+    onValue(ref(database, `rooms/${currentRoom}/voice/offer`), (snap) => {
+        const offerData = snap.val();
+        if (offerData && offerData.broadcaster !== currentUser) {
+            startListening(offerData);
+        } else if (!offerData) {
+            // Broadcast ended
+            stopListening();
+        }
+    });
+}
+
+// ===== Mic Button Click Handler =====
+if (micBtn) {
+    micBtn.addEventListener('click', () => {
+        if (isBroadcasting) {
+            stopBroadcast();
+        } else {
+            startBroadcast();
+        }
+    });
+}
+
+// Hook into room join to start voice listener
+const _originalJoinRoom = joinRoom;
+// We need to init voice listener after joining room, override done below
+// since joinRoom is called from window.load, we add a MutationObserver-style hook
+
+// Watch for chatScreen becoming active, then init voice listener
+const chatScreenObserver = new MutationObserver(() => {
+    if (chatScreen.classList.contains('active') && currentRoom) {
+        initVoiceListener();
+        chatScreenObserver.disconnect();
+    }
+});
+chatScreenObserver.observe(chatScreen, { attributes: true, attributeFilter: ['class'] });
+
+// Cleanup on page unload
+window.addEventListener('beforeunload', () => {
+    if (isBroadcasting) stopBroadcast();
+    if (listenerPC) stopListening();
+});
+
+// Autoplay policy bypass for listener
+document.body.addEventListener('click', () => {
+    if (remoteAudio && remoteAudio.paused && remoteAudio.srcObject) {
+        remoteAudio.play().then(() => {
+            if (voiceListenerBar && !voiceListenerBar.classList.contains('hidden') && document.getElementById('voiceListenerText')) {
+                document.getElementById('voiceListenerText').innerHTML = "👽 กำลังรับเสียง (ออนไลน์)...";
+                document.getElementById('voiceListenerText').style.color = "#10b981";
+            }
+        }).catch(()=>{});
+    }
+}, { capture: true });
+
+voiceListenerBar?.addEventListener('click', () => {
+    if (remoteAudio && remoteAudio.paused && remoteAudio.srcObject) {
+        remoteAudio.play().then(() => {
+            if (document.getElementById('voiceListenerText')) {
+                document.getElementById('voiceListenerText').innerHTML = "👽 กำลังรับเสียง (ออนไลน์)...";
+                document.getElementById('voiceListenerText').style.color = "#10b981";
+            }
+        }).catch(()=>{});
+    }
+});
+
+
