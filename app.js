@@ -281,9 +281,6 @@ function renderMessage(data, id) {
             contentHTML += `
                 <div class="message-media-container" onclick="forceDownload('${linkUrl}', '${data.file.name}')">
                     <img src="${fileUrl}" class="message-img" alt="Image" onerror="handleImgError(this, '${linkUrl}', '${data.file.name}')">
-                    <div class="message-image-icon" onclick="openCropTool('${linkUrl}', event)">
-                        <img src="https://cdn-icons-png.flaticon.com/128/11771/11771746.png" alt="Crop" style="width: 18px; height: 18px; filter: invert(1);">
-                    </div>
                     <div class="download-overlay">คลิกเพื่อดาวน์โหลด</div>
                 </div>
             `;
@@ -389,63 +386,7 @@ window.forceDownload = function (url, filename) {
     }
 };
 
-// DOM Elements for Crop Modal
-const cropModal = document.getElementById('cropModal');
-const cropIframe = document.getElementById('cropIframe');
-const closeCropModal = document.getElementById('closeCropModal');
 
-// Function to open crop tool (cutpdf.html) in an in-page modal
-window.openCropTool = function (url, event) {
-    if (event) event.stopPropagation();
-
-    let targetUrl = '';
-    // If it's a Base64 string (starts with data:), it might be too long for a URL
-    if (url.startsWith('data:')) {
-        try {
-            sessionStorage.setItem('cropImageData', url);
-            targetUrl = `cutpdf.html?source=session`;
-        } catch (e) {
-            console.error('Failed to save to sessionStorage:', e);
-            targetUrl = `cutpdf.html?imgUrl=${encodeURIComponent(url.substring(0, 1000))}...`;
-            alert('ไฟล์มีขนาดใหญ่เกินไปสำหรับการอัพโหลดแบบ Modal');
-        }
-    } else {
-        targetUrl = `cutpdf.html?imgUrl=${encodeURIComponent(url)}`;
-    }
-
-    // Set iframe source and show modal
-    cropIframe.src = targetUrl;
-    cropModal.classList.add('active');
-};
-
-// Close Modal logic
-if (closeCropModal) {
-    closeCropModal.onclick = () => {
-        cropModal.classList.remove('active');
-        cropIframe.src = 'about:blank'; // Clear iframe to stop processes
-    };
-}
-
-// Handle message from iframe (Crop Tool)
-window.addEventListener('message', (event) => {
-    if (event.data && event.data.type === 'CROP_DONE') {
-        // Close Modal
-        cropModal.classList.remove('active');
-        cropIframe.src = 'about:blank';
-
-        // Insert text into message input and auto-submit
-        if (messageInput && sendBtn) {
-            messageInput.value = event.data.text;
-            messageInput.style.height = 'auto';
-            messageInput.style.height = messageInput.scrollHeight + 'px';
-
-            // Auto-submit to chat
-            setTimeout(() => {
-                sendBtn.click();
-            }, 100);
-        }
-    }
-});
 
 function updateCountdowns() {
     const now = Date.now();
