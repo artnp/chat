@@ -270,6 +270,7 @@ function renderMessage(data, id) {
     div.setAttribute('data-timestamp', data.timestamp);
 
     let contentHTML = '';
+    let markButtonHTML = '';
 
     if (data.file) {
         const isImage = data.file.type && data.file.type.startsWith('image/');
@@ -278,12 +279,33 @@ function renderMessage(data, id) {
         const linkUrl = data.file.shortUrl || fileUrl;
 
         if (isImage) {
-            contentHTML += `
-                <div class="message-media-container" onclick="forceDownload('${linkUrl}', '${data.file.name}')">
-                    <img src="${fileUrl}" class="message-img" alt="Image" onerror="handleImgError(this, '${linkUrl}', '${data.file.name}')">
-                    <div class="download-overlay">คลิกเพื่อดาวน์โหลด</div>
-                </div>
-            `;
+            const isMarked = data.file.name && data.file.name.startsWith('marked_');
+
+            if (isMarked) {
+                // Marked image: yellow frame, tag, click-to-zoom
+                contentHTML += `
+                    <div class="marked-image-wrapper">
+                        <span class="marked-tag">📌 โจทย์ปัญหา</span>
+                        <div class="message-media-container marked-media" onclick="window.openImagePopup('${fileUrl.replace(/'/g, "\\'")}')">
+                            <img src="${fileUrl}" class="message-img" alt="Marked Image">
+                        </div>
+                    </div>
+                `;
+                // No mark button for marked images
+            } else {
+                // Normal image: download + mark button
+                contentHTML += `
+                    <div class="message-media-container" onclick="forceDownload('${linkUrl}', '${data.file.name}')">
+                        <img src="${fileUrl}" class="message-img" alt="Image" onerror="handleImgError(this, '${linkUrl}', '${data.file.name}')">
+                        <div class="download-overlay">คลิกเพื่อดาวน์โหลด</div>
+                    </div>
+                `;
+                markButtonHTML = `
+                    <button class="mark-image-btn" onclick="event.stopPropagation(); window.openAnnotateModal('${fileUrl.replace(/'/g, "\\'")}')">
+                        <i class="fa-regular fa-circle" style="color: #ef4444;"></i> วงจุดแก้
+                    </button>
+                `;
+            }
         } else if (isAudio) {
             contentHTML += `
                 <div style="margin-top: 5px; border-radius: 20px; overflow: hidden; background: rgba(0,0,0,0.05); padding: 5px; box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);">
@@ -344,8 +366,9 @@ function renderMessage(data, id) {
     }
 
     contentHTML += `
-        <div class="message-meta">
-            <span>ทำลายทิ้งใน </span><span class="countdown">--:--</span>
+        <div class="message-meta" ${markButtonHTML ? 'style="justify-content: space-between; align-items: center; width: 100%;"' : ''}>
+            ${markButtonHTML}
+            <div style="display: flex; gap: 8px;"><span>ทำลายทิ้งใน </span><span class="countdown">--:--</span></div>
         </div>
     `;
 
@@ -386,7 +409,13 @@ window.forceDownload = function (url, filename) {
     }
 };
 
-
+// Function to open image in lightbox popup (for marked images)
+window.openImagePopup = function (imgSrc) {
+    const lightbox = document.getElementById('imageLightbox');
+    const lightboxImg = document.getElementById('lightboxImg');
+    lightboxImg.src = imgSrc;
+    lightbox.classList.add('active');
+};
 
 function updateCountdowns() {
     const now = Date.now();
@@ -1227,4 +1256,270 @@ voiceListenerBar?.addEventListener('click', () => {
     }
 });
 
+// ===== Annotation Modal System =====
+
+const annotateModal = document.getElementById('annotateModal');
+const annotateCanvasContainer = document.getElementById('annotateCanvasContainer');
+const annotateCloseBtn = document.getElementById('annotateCloseBtn');
+const annotateAddBoxBtn = document.getElementById('annotateAddBoxBtn');
+const annotateSendBtn = document.getElementById('annotateSendBtn');
+
+let annotateImageSrc = null; // current image being annotated
+
+// Open modal with image
+window.openAnnotateModal = function(imgSrc) {
+    annotateImageSrc = imgSrc;
+    annotateCanvasContainer.innerHTML = '';
+    annotateSendBtn.classList.remove('ready');
+    annotateAddBoxBtn.classList.add('pulse');
+
+    // Load image onto a canvas
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = img.naturalWidth;
+        canvas.height = img.naturalHeight;
+        canvas.style.width = '100%';
+        canvas.style.height = 'auto';
+        ctx.drawImage(img, 0, 0);
+        annotateCanvasContainer.appendChild(canvas);
+
+        // Show modal
+        annotateModal.classList.add('active');
+        document.body.style.overflow = 'hidden';
+    };
+    img.onerror = () => {
+        // For base64 images, try without crossOrigin
+        const img2 = new Image();
+        img2.onload = () => {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            canvas.width = img2.naturalWidth;
+            canvas.height = img2.naturalHeight;
+            canvas.style.width = '100%';
+            canvas.style.height = 'auto';
+            ctx.drawImage(img2, 0, 0);
+            annotateCanvasContainer.appendChild(canvas);
+            annotateModal.classList.add('active');
+            document.body.style.overflow = 'hidden';
+        };
+        img2.src = imgSrc;
+    };
+    img.src = imgSrc;
+};
+
+// Close modal
+annotateCloseBtn.onclick = () => {
+    annotateModal.classList.remove('active');
+    annotateCanvasContainer.innerHTML = '';
+    document.body.style.overflow = '';
+    annotateImageSrc = null;
+};
+
+// Add annotation box
+annotateAddBoxBtn.onclick = () => {
+    annotateAddBoxBtn.classList.remove('pulse');
+    annotateSendBtn.classList.add('ready');
+
+    const cWidth = annotateCanvasContainer.offsetWidth;
+    const cHeight = annotateCanvasContainer.offsetHeight;
+    const bWidth = 120;
+    const bHeight = 80;
+
+    const rect = annotateCanvasContainer.getBoundingClientRect();
+    let yCenter = (window.innerHeight / 2) - rect.top - (bHeight / 2);
+    if (yCenter < 20) yCenter = 20;
+    if (yCenter + bHeight > cHeight - 20) yCenter = cHeight - bHeight - 20;
+    const xCenter = (cWidth - bWidth) / 2;
+
+    createAnnBox({ x: xCenter, y: yCenter, w: bWidth, h: bHeight, text: '' });
+};
+
+function createAnnBox(data) {
+    const box = document.createElement('div');
+    box.className = 'ann-box';
+    box.style.left = data.x + 'px';
+    box.style.top = data.y + 'px';
+    box.style.width = data.w + 'px';
+    box.style.height = data.h + 'px';
+
+    // Delete button
+    const close = document.createElement('div');
+    close.className = 'ann-close';
+    close.innerHTML = '<i class="fa-solid fa-times"></i>';
+    close.onpointerdown = (e) => {
+        e.stopPropagation();
+        box.remove();
+        // Check if any boxes left
+        if (annotateCanvasContainer.querySelectorAll('.ann-box').length === 0) {
+            annotateSendBtn.classList.remove('ready');
+        }
+    };
+    box.appendChild(close);
+
+    // Label
+    const label = document.createElement('div');
+    label.className = 'ann-label';
+    label.contentEditable = true;
+    label.textContent = data.text || '';
+    label.onpointerdown = e => e.stopPropagation();
+    box.appendChild(label);
+
+    // Resizers
+    ['tl', 'tr', 'bl', 'br'].forEach(dir => {
+        const r = document.createElement('div');
+        r.className = `ann-resizer ${dir}`;
+        box.appendChild(r);
+    });
+
+    annotateCanvasContainer.appendChild(box);
+    makeAnnDraggableAndResizable(box);
+}
+
+function makeAnnDraggableAndResizable(el) {
+    let isDragging = false, isResizing = false;
+    let dir, startX, startY;
+    let startW, startH, startL, startT;
+
+    el.querySelectorAll('.ann-resizer').forEach(r => {
+        r.addEventListener('pointerdown', e => {
+            e.stopPropagation();
+            isResizing = true;
+            dir = r.className.split(' ').find(c => ['tl','tr','bl','br'].includes(c));
+            startX = e.clientX;
+            startY = e.clientY;
+            startW = el.offsetWidth;
+            startH = el.offsetHeight;
+            startL = el.offsetLeft;
+            startT = el.offsetTop;
+
+            document.addEventListener('pointermove', onMove);
+            document.addEventListener('pointerup', onUp);
+            el.setPointerCapture(e.pointerId);
+        });
+    });
+
+    el.addEventListener('pointerdown', e => {
+        if (e.target.closest('.ann-label') || e.target.closest('.ann-close') || e.target.closest('.ann-resizer')) return;
+        e.stopPropagation();
+        isDragging = true;
+        el.style.cursor = 'grabbing';
+        startX = e.clientX;
+        startY = e.clientY;
+        startL = el.offsetLeft;
+        startT = el.offsetTop;
+
+        document.addEventListener('pointermove', onMove);
+        document.addEventListener('pointerup', onUp);
+        el.setPointerCapture(e.pointerId);
+    });
+
+    function onMove(e) {
+        e.preventDefault();
+        if (isResizing) {
+            const dx = e.clientX - startX;
+            const dy = e.clientY - startY;
+            let w = startW, h = startH, l = startL, t = startT;
+
+            if (dir.includes('r')) w += dx;
+            if (dir.includes('l')) { w -= dx; l += dx; }
+            if (dir.includes('b')) h += dy;
+            if (dir.includes('t')) { h -= dy; t += dy; }
+
+            if (w >= 50 && h >= 50) {
+                el.style.width = w + 'px';
+                el.style.height = h + 'px';
+                el.style.left = l + 'px';
+                el.style.top = t + 'px';
+            }
+        } else if (isDragging) {
+            const dx = e.clientX - startX;
+            const dy = e.clientY - startY;
+            el.style.left = (startL + dx) + 'px';
+            el.style.top = (startT + dy) + 'px';
+        }
+    }
+
+    function onUp(e) {
+        // Drag out to delete
+        const rect = annotateCanvasContainer.getBoundingClientRect();
+        if (isDragging && (e.clientX < rect.left || e.clientX > rect.right || e.clientY < rect.top || e.clientY > rect.bottom)) {
+            el.remove();
+            if (annotateCanvasContainer.querySelectorAll('.ann-box').length === 0) {
+                annotateSendBtn.classList.remove('ready');
+            }
+        }
+
+        isDragging = false;
+        isResizing = false;
+        el.style.cursor = 'grab';
+        document.removeEventListener('pointermove', onMove);
+        document.removeEventListener('pointerup', onUp);
+        el.releasePointerCapture(e.pointerId);
+    }
+}
+
+// Send annotated image to chat
+annotateSendBtn.onclick = async () => {
+    if (!annotateSendBtn.classList.contains('ready')) return;
+    if (!currentRoom) return;
+
+    const boxes = annotateCanvasContainer.querySelectorAll('.ann-box');
+    if (boxes.length === 0) return;
+
+    // Mark empty labels
+    boxes.forEach(box => {
+        const labelEl = box.querySelector('.ann-label');
+        if (labelEl.textContent.trim() === '') {
+            labelEl.classList.add('is-empty');
+        } else {
+            labelEl.classList.remove('is-empty');
+        }
+    });
+
+    // Disable button during processing
+    const origHTML = annotateSendBtn.innerHTML;
+    annotateSendBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> กำลังส่ง...';
+    annotateSendBtn.style.pointerEvents = 'none';
+
+    try {
+        // Hide UI elements for capture
+        annotateCanvasContainer.classList.add('exporting');
+
+        const canvasResult = await html2canvas(annotateCanvasContainer, {
+            scale: 2,
+            backgroundColor: null,
+            logging: false,
+            useCORS: true,
+            allowTaint: true
+        });
+
+        annotateCanvasContainer.classList.remove('exporting');
+
+        const dataUrl = canvasResult.toDataURL('image/png');
+
+        // Send to chat
+        await sendMessage(null, {
+            name: `marked_${Date.now()}.png`,
+            type: 'image/png',
+            data: dataUrl
+        });
+
+        // Close modal
+        annotateModal.classList.remove('active');
+        annotateCanvasContainer.innerHTML = '';
+        document.body.style.overflow = '';
+        annotateImageSrc = null;
+
+    } catch (err) {
+        console.error('Annotation send error:', err);
+        alert('เกิดข้อผิดพลาดในการส่ง: ' + err.message);
+        annotateCanvasContainer.classList.remove('exporting');
+    } finally {
+        annotateSendBtn.innerHTML = origHTML;
+        annotateSendBtn.style.pointerEvents = '';
+    }
+};
 

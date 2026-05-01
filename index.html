@@ -13,6 +13,8 @@
         href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500&family=Kanit:wght@200;300;400&display=swap"
         rel="stylesheet">
     <link rel="stylesheet" href="style.css?v=2">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
 </head>
 
 <body>
@@ -123,6 +125,35 @@
     </div>
 
 
+    <!-- Annotation Mark Modal -->
+    <div id="annotateModal" class="annotate-modal">
+        <div class="annotate-modal-inner">
+            <div class="annotate-header">
+                <h3><i class="fa-solid fa-pen-to-square"></i> วงจุดแก้ไข</h3>
+                <button id="annotateCloseBtn" class="annotate-close-btn"><i class="fa-solid fa-times"></i></button>
+            </div>
+            <div class="annotate-body">
+                <div id="annotateCanvasContainer" class="annotate-canvas-container"></div>
+            </div>
+            <div class="annotate-toolbar">
+                <button class="annotate-btn annotate-btn-tool" id="annotateAddBoxBtn">
+                    <i class="fa-regular fa-circle"></i>
+                    <span>วงจุดแก้</span>
+                </button>
+                <div class="annotate-toolbar-divider"></div>
+                <button class="annotate-btn annotate-btn-send" id="annotateSendBtn">
+                    <i class="fa-solid fa-paper-plane"></i>
+                    <span>ส่งในแชท</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Image Lightbox Popup -->
+    <div id="imageLightbox" class="image-lightbox" onclick="this.classList.remove('active')">
+        <button class="lightbox-close" onclick="document.getElementById('imageLightbox').classList.remove('active')">&times;</button>
+        <img id="lightboxImg" src="" alt="Preview" onclick="event.stopPropagation()">
+    </div>
 
     <div id="copyToast" class="copy-toast">คัดลอกเรียบร้อย!</div>
     <!-- Firebase SDK -->
