@@ -89,12 +89,12 @@ window.addEventListener('load', () => {
         const checkAndShowBill = () => {
             const now = Date.now();
             const remaining = 10 * 60 * 1000 - (now - billTime);
-            
+
             if (remaining > 0) {
                 const minutes = Math.floor(remaining / 60000);
                 const seconds = Math.floor((remaining % 60000) / 1000);
                 const timeStr = `${minutes}:${seconds.toString().padStart(2, '0')}`;
-                
+
                 const container = document.getElementById('billingContainer');
                 if (container.innerHTML.trim() === '') {
                     container.innerHTML = `
@@ -746,8 +746,8 @@ messageInput.addEventListener('input', function () {
 LINE : artap5321
 https://line.me/ti/p/gqIluRmdJ_
 
-Facebook:
-https://www.facebook.com/ImageTextEditor
+✅ส่งงานให้ฉันแบบง่าย ๆ ทางนี้:
+https://artnp.github.io/eworker
 
 =================
 อ่านจบแล้วปิดหน้าเว็บนี้ได้เลย!!`;
@@ -877,11 +877,13 @@ window.downloadQRCode = async function (url, amount) {
 
 // ===== Live Voice Broadcast System (WebRTC + Alien Voice) =====
 
-const ICE_SERVERS = { iceServers: [
-    { urls: 'stun:stun.l.google.com:19302' },
-    { urls: 'stun:stun1.l.google.com:19302' },
-    { urls: 'stun:stun2.l.google.com:19302' }
-]};
+const ICE_SERVERS = {
+    iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' },
+        { urls: 'stun:stun2.l.google.com:19302' }
+    ]
+};
 
 let isBroadcasting = false;
 let broadcastPC = null;       // RTCPeerConnection for broadcaster
@@ -906,21 +908,21 @@ function createScammerVoiceStream(stream) {
     const villainOsc = ctx.createOscillator();
     villainOsc.type = 'sine';
     villainOsc.frequency.value = 30; // 30Hz creates an ultra-deep, slow, terrifying growl (Sub-bass)
-    
+
     const ringModGain = ctx.createGain();
-    ringModGain.gain.value = 0; 
+    ringModGain.gain.value = 0;
     villainOsc.connect(ringModGain.gain);
 
     // 2. Gritty Menacing Distortion (Makes it sound evil and harsh)
     function makeGritCurve(amount) {
-      const k = amount;
-      const n = 44100;
-      const curve = new Float32Array(n);
-      for (let i = 0; i < n; ++i ) {
-        const x = i * 2 / n - 1;
-        curve[i] = (3 + k) * x * 20 * (Math.PI / 180) / (Math.PI + k * Math.abs(x));
-      }
-      return curve;
+        const k = amount;
+        const n = 44100;
+        const curve = new Float32Array(n);
+        for (let i = 0; i < n; ++i) {
+            const x = i * 2 / n - 1;
+            curve[i] = (3 + k) * x * 20 * (Math.PI / 180) / (Math.PI + k * Math.abs(x));
+        }
+        return curve;
     }
     const distortion = ctx.createWaveShaper();
     distortion.curve = makeGritCurve(25); // Heavy grit
@@ -940,15 +942,15 @@ function createScammerVoiceStream(stream) {
 
     // 5. ANTI-HOWLING Brickwall Limiter (Safety)
     const limiter = ctx.createDynamicsCompressor();
-    limiter.threshold.value = -20; 
-    limiter.knee.value = 0; 
-    limiter.ratio.value = 20; 
-    limiter.attack.value = 0.001; 
+    limiter.threshold.value = -20;
+    limiter.knee.value = 0;
+    limiter.ratio.value = 20;
+    limiter.attack.value = 0.001;
     limiter.release.value = 0.1;
-    
+
     // 6. Safe Output Volume 
     const masterGain = ctx.createGain();
-    masterGain.gain.value = 1.5; 
+    masterGain.gain.value = 1.5;
 
     // Connection Chain
     source.connect(ringModGain);    // Apply Sub-bass growl
@@ -956,7 +958,7 @@ function createScammerVoiceStream(stream) {
     distortion.connect(bassBoost);  // Make the growl massive
     bassBoost.connect(highCut);     // Darken the room
     highCut.connect(limiter);       // Squash feedback limits
-    limiter.connect(masterGain);    
+    limiter.connect(masterGain);
     masterGain.connect(destination);
 
     villainOsc.start(); // Start the dark engine
@@ -983,10 +985,10 @@ async function startBroadcast() {
 
         // Apply Deep Scammer Effect
         const activeStream = createScammerVoiceStream(broadcastStream);
-        
+
         // VITAL: Browsers suspend AudioContexts if created after `await`. Must explicitly resume!
         if (broadcastAudioCtx && broadcastAudioCtx.state === 'suspended') {
-            await broadcastAudioCtx.resume().catch(() => {});
+            await broadcastAudioCtx.resume().catch(() => { });
         }
 
         // Create peer connection
@@ -1030,9 +1032,9 @@ async function startBroadcast() {
                 await broadcastPC.setRemoteDescription(new RTCSessionDescription(answer));
 
                 // Process queued listener candidates
-                while(listenerCandidatesQueue.length > 0) {
+                while (listenerCandidatesQueue.length > 0) {
                     const c = listenerCandidatesQueue.shift();
-                    await broadcastPC.addIceCandidate(new RTCIceCandidate(c)).catch(() => {});
+                    await broadcastPC.addIceCandidate(new RTCIceCandidate(c)).catch(() => { });
                 }
             }
         });
@@ -1043,7 +1045,7 @@ async function startBroadcast() {
             async (snap) => {
                 if (broadcastPC) {
                     if (broadcastPC.remoteDescription) {
-                        await broadcastPC.addIceCandidate(new RTCIceCandidate(snap.val())).catch(() => {});
+                        await broadcastPC.addIceCandidate(new RTCIceCandidate(snap.val())).catch(() => { });
                     } else {
                         listenerCandidatesQueue.push(snap.val());
                     }
@@ -1095,8 +1097,8 @@ function stopBroadcast() {
 
     // Clean Firebase signaling data
     if (currentRoom) {
-        remove(ref(database, `rooms/${currentRoom}/voice`)).catch(() => {});
-        
+        remove(ref(database, `rooms/${currentRoom}/voice`)).catch(() => { });
+
         // Notify in chat that broadcast stopped explicitly
         // Only if it was currently broadcasting
         if (isBroadcasting) {
@@ -1106,7 +1108,7 @@ function stopBroadcast() {
                 type: 'notification',
                 text: '🔇',
                 timestamp: Date.now()
-            }).catch(() => {});
+            }).catch(() => { });
         }
     }
 
@@ -1135,7 +1137,7 @@ function startListening(offerData) {
     listenerPC.ontrack = (e) => {
         if (e.streams && e.streams[0]) {
             remoteAudio.srcObject = e.streams[0];
-            
+
             // Explicit Autoplay Handling
             const playPromise = remoteAudio.play();
             if (playPromise !== undefined) {
@@ -1310,7 +1312,7 @@ document.body.addEventListener('click', () => {
                 document.getElementById('voiceListenerText').innerHTML = "👽 กำลังรับเสียง (ออนไลน์)...";
                 document.getElementById('voiceListenerText').style.color = "#10b981";
             }
-        }).catch(()=>{});
+        }).catch(() => { });
     }
 }, { capture: true });
 
@@ -1321,7 +1323,7 @@ voiceListenerBar?.addEventListener('click', () => {
                 document.getElementById('voiceListenerText').innerHTML = "👽 กำลังรับเสียง (ออนไลน์)...";
                 document.getElementById('voiceListenerText').style.color = "#10b981";
             }
-        }).catch(()=>{});
+        }).catch(() => { });
     }
 });
 
@@ -1336,7 +1338,7 @@ const annotateSendBtn = document.getElementById('annotateSendBtn');
 let annotateImageSrc = null; // current image being annotated
 
 // Open modal with image
-window.openAnnotateModal = function(imgSrc) {
+window.openAnnotateModal = function (imgSrc) {
     annotateImageSrc = imgSrc;
     annotateCanvasContainer.innerHTML = '';
     annotateSendBtn.classList.remove('ready');
@@ -1456,7 +1458,7 @@ function makeAnnDraggableAndResizable(el) {
         r.addEventListener('pointerdown', e => {
             e.stopPropagation();
             isResizing = true;
-            dir = r.className.split(' ').find(c => ['tl','tr','bl','br'].includes(c));
+            dir = r.className.split(' ').find(c => ['tl', 'tr', 'bl', 'br'].includes(c));
             startX = e.clientX;
             startY = e.clientY;
             startW = el.offsetWidth;
