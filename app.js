@@ -78,6 +78,75 @@ window.addEventListener('load', () => {
         // อัตโนมัติสร้างห้องใหม่ทันทีถ้าไม่มี Room ID ใน URL
         joinRoom(generateRoomId());
     }
+
+    // Handle Billing Query
+    const params = new URLSearchParams(window.location.search);
+    const billAmount = params.get('bill');
+    const billTime = parseInt(params.get('t') || '0');
+    const billKey = params.get('k');
+
+    if (billAmount && billKey === 'eworker') {
+        const checkAndShowBill = () => {
+            const now = Date.now();
+            const remaining = 10 * 60 * 1000 - (now - billTime);
+            
+            if (remaining > 0) {
+                const minutes = Math.floor(remaining / 60000);
+                const seconds = Math.floor((remaining % 60000) / 1000);
+                const timeStr = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+                
+                const container = document.getElementById('billingContainer');
+                if (container.innerHTML.trim() === '') {
+                    container.innerHTML = `
+                        <div class="promptpay-container" style="margin-top: 12px; border-radius: 12px; overflow: hidden; background: #fff; padding: 15px; text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.2);">
+                            <div style="color: #ef4444; font-weight: 600; font-size: 0.95rem; margin-bottom: 12px; display: flex; align-items: center; justify-content: center; gap: 5px;">
+                                <i class="fa-regular fa-clock"></i> <span>กรุณาโอนภายใน:</span> <span id="billTimerDisplay" style="background: rgba(239, 68, 68, 0.1); padding: 2px 6px; border-radius: 4px;">${timeStr}</span> <span>นาที</span>
+                            </div>
+                            <div style="color: #1a1a1a; font-weight: 600; font-size: 0.85rem; margin-bottom: 10px; display: flex; align-items: center; justify-content: center; gap: 6px;">
+                                <span>💵พร้อมเพย์ :</span><span style="color: #0046b8; font-size: 1rem;">${billAmount} บาท</span>
+                            </div>
+                            <div class="qr-container" onclick="downloadQRCode('https://promptpay.io/0988573074/${billAmount}.png', '${billAmount}')" title="คลิกเพื่อบันทึก QR Code">
+                                <img src="https://promptpay.io/0988573074/${billAmount}.png" class="qr-image" alt="PromptPay QR Code">
+                                <div class="qr-download-overlay">
+                                    <div class="qr-download-icon">
+                                        <img src="https://cdn-icons-png.flaticon.com/128/4196/4196713.png" style="width: 24px; height: 24px;" alt="Save">
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="copyable-id" onclick="copyToClipboard('0988573074', event)" title="คลิกเพื่อคัดลอกเบอร์พร้อมเพย์">
+                                <div style="font-size: 0.60rem; color: #666; font-weight: 500;">ID: <span class="copy-number">0988573074</span></div>
+                            </div>
+                            <div style="margin-top: 8px; font-size: 0.65rem; color: #666;">สแกนเพื่อชำระเงินได้ทันที</div>
+                            <hr style="border: none; border-top: 1px solid #eee; margin: 12px 10px;">
+                            <div style="display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; padding-bottom: 5px;">
+                                <img src="https://raw.githubusercontent.com/casperstack/thai-banks-logo/master/icons/KBANK.png" style="width: 18px; height: 18px; border-radius: 4px;" alt="KBANK">
+                                <img src="https://raw.githubusercontent.com/casperstack/thai-banks-logo/master/icons/SCB.png" style="width: 18px; height: 18px; border-radius: 4px;" alt="SCB">
+                                <img src="https://raw.githubusercontent.com/casperstack/thai-banks-logo/master/icons/BBL.png" style="width: 18px; height: 18px; border-radius: 4px;" alt="BBL">
+                                <img src="https://raw.githubusercontent.com/casperstack/thai-banks-logo/master/icons/KTB.png" style="width: 18px; height: 18px; border-radius: 4px;" alt="KTB">
+                                <img src="https://raw.githubusercontent.com/casperstack/thai-banks-logo/master/icons/BAY.png" style="width: 18px; height: 18px; border-radius: 4px;" alt="BAY">
+                                <img src="https://raw.githubusercontent.com/casperstack/thai-banks-logo/master/icons/TTB.png" style="width: 18px; height: 18px; border-radius: 4px;" alt="TTB">
+                                <img src="https://raw.githubusercontent.com/casperstack/thai-banks-logo/master/icons/GSB.png" style="width: 18px; height: 18px; border-radius: 4px;" alt="GSB">
+                            </div>
+                        </div>
+                    `;
+                    document.getElementById('billingModal').classList.add('active');
+                } else {
+                    const timerDisplay = document.getElementById('billTimerDisplay');
+                    if (timerDisplay) timerDisplay.textContent = timeStr;
+                }
+            } else {
+                document.getElementById('billingModal').classList.remove('active');
+                if (window.billTimerInterval) clearInterval(window.billTimerInterval);
+            }
+        };
+
+        checkAndShowBill();
+        window.billTimerInterval = setInterval(checkAndShowBill, 1000);
+    }
+});
+
+document.getElementById('closeBillingBtn').addEventListener('click', () => {
+    document.getElementById('billingModal').classList.remove('active');
 });
 
 // ===== Large File Upload Logic (Cloud) =====
