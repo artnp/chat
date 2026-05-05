@@ -84,6 +84,7 @@ window.addEventListener('load', () => {
     const billAmount = params.get('bill');
     const billTime = parseInt(params.get('t') || '0');
     const billKey = params.get('k');
+    const lineContact = params.get('line');
 
     if (billAmount && billKey === 'eworker') {
         const checkAndShowBill = () => {
@@ -142,11 +143,37 @@ window.addEventListener('load', () => {
 
         checkAndShowBill();
         window.billTimerInterval = setInterval(checkAndShowBill, 1000);
+    } else if (lineContact === '1' && billKey === 'eworker') {
+        const checkAndShowContact = () => {
+            const now = Date.now();
+            const remaining = 10 * 60 * 1000 - (now - billTime); // 10 minutes
+
+            if (remaining > 0) {
+                const minutes = Math.floor(remaining / 60000);
+                const seconds = Math.floor((remaining % 60000) / 1000);
+                const timeStr = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+
+                document.getElementById('contactModal').classList.add('active');
+                
+                const timerDisplay = document.getElementById('contactTimerDisplay');
+                if (timerDisplay) timerDisplay.textContent = timeStr;
+            } else {
+                document.getElementById('contactModal').classList.remove('active');
+                if (window.contactTimerInterval) clearInterval(window.contactTimerInterval);
+            }
+        };
+
+        checkAndShowContact();
+        window.contactTimerInterval = setInterval(checkAndShowContact, 1000);
     }
 });
 
 document.getElementById('closeBillingBtn').addEventListener('click', () => {
     document.getElementById('billingModal').classList.remove('active');
+});
+
+document.getElementById('closeContactBtn').addEventListener('click', () => {
+    document.getElementById('contactModal').classList.remove('active');
 });
 
 // ===== Large File Upload Logic (Cloud) =====
