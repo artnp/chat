@@ -36,11 +36,12 @@ const mainFileInput = document.getElementById('mainFileInput');
 const notifyBtn = document.getElementById('notifyBtn');
 const micBtn = document.getElementById('micBtn');
 
-// Large Upload Modal Elements
-const uploadModal = document.getElementById('uploadModal');
-const modalFileName = document.getElementById('modalFileName');
-const modalProgressBar = document.getElementById('modalProgressBar');
-const modalStatus = document.getElementById('modalStatus');
+// Upload Progress Overlay Elements
+const progressOverlay = document.getElementById('progressOverlay');
+const barFile = document.getElementById('bar-file');
+const percentFile = document.getElementById('percent-file');
+const stepFileLabel = document.getElementById('step-file-label');
+const stepFileText = document.getElementById('step-file-text');
 
 // Sound for notification
 const NOTIFY_SOUND_URL = 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3';
@@ -180,11 +181,14 @@ document.getElementById('closeContactBtn').addEventListener('click', () => {
 async function uploadToCloud(file) {
     if (!file) return;
 
-    // Setup Modal UI
-    modalFileName.textContent = file.name;
-    modalProgressBar.style.width = '0%';
-    modalStatus.textContent = '0%';
-    uploadModal.classList.add('active');
+    // Setup Progress Overlay
+    stepFileText.textContent = file.name;
+    barFile.style.width = '0%';
+    barFile.classList.remove('done');
+    percentFile.textContent = '0%';
+    stepFileLabel.className = 'progress-step-label active';
+    stepFileLabel.querySelector('i').className = 'fa-solid fa-image';
+    progressOverlay.classList.add('show');
 
     const isImage = file.type.startsWith('image/');
 
@@ -198,8 +202,8 @@ async function uploadToCloud(file) {
             xhr.upload.onprogress = (e) => {
                 if (e.lengthComputable) {
                     const percent = Math.round((e.loaded / e.total) * 100);
-                    modalProgressBar.style.width = percent + '%';
-                    modalStatus.textContent = percent + '%';
+                    barFile.style.width = percent + '%';
+                    percentFile.textContent = percent + '%';
                 }
             };
 
@@ -253,8 +257,8 @@ async function uploadToCloud(file) {
             result = await tryUpload(proxyUrl, litterboxData, true);
         } catch (err) {
             console.warn('Litterbox upload failed, falling back to Tempfile...', err);
-            modalProgressBar.style.width = '0%';
-            modalStatus.textContent = 'ระบบหลักขัดข้อง... กำลังลองอัปโหลดสำรอง';
+            barFile.style.width = '0%';
+            percentFile.textContent = 'ระบบสำรอง...';
         }
 
         // 2. ถ้า Litterbox ล้มเหลว ให้ใช้ Tempfile เป็นตัวสำรอง (สำหรับทุกไฟล์)
@@ -275,15 +279,19 @@ async function uploadToCloud(file) {
                 isExternal: true
             });
 
-            // Close Modal
+            // Mark done and close
+            barFile.classList.add('done');
+            stepFileLabel.className = 'progress-step-label done';
+            stepFileLabel.querySelector('i').className = 'fa-solid fa-circle-check';
+            percentFile.textContent = '100%';
             setTimeout(() => {
-                uploadModal.classList.remove('active');
+                progressOverlay.classList.remove('show');
             }, 800);
         }
     } catch (err) {
         console.error(err);
         alert('อัปโหลดล้มเหลว: ' + err.message);
-        uploadModal.classList.remove('active');
+        progressOverlay.classList.remove('show');
     }
 }
 
