@@ -9,7 +9,7 @@ const firebaseConfig = {
 };
 
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
-import { getDatabase, ref, push, onChildAdded, onChildRemoved, query, orderByChild, limitToLast, remove, get, set, onValue, onDisconnect as fbOnDisconnect } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js';
+import { getDatabase, ref, push, onChildAdded, onChildRemoved, query, orderByChild, limitToLast, remove, get, set, onValue, endAt, onDisconnect as fbOnDisconnect } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js';
 
 const app = initializeApp(firebaseConfig);
 const database = getDatabase(app);
@@ -317,13 +317,12 @@ function initChatListeners() {
 
     // Cleanup Loop
     setInterval(async () => {
-        const snap = await get(messagesRef);
+        const now = Date.now();
+        const expiredQuery = query(messagesRef, orderByChild('timestamp'), endAt(now - DELETION_TIME_MS));
+        const snap = await get(expiredQuery);
         if (snap.exists()) {
-            const now = Date.now();
             snap.forEach((child) => {
-                if (now - child.val().timestamp > DELETION_TIME_MS) {
-                    remove(ref(database, `rooms/${currentRoom}/messages/${child.key}`));
-                }
+                remove(ref(database, `rooms/${currentRoom}/messages/${child.key}`));
             });
         }
     }, 60000);
