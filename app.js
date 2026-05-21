@@ -44,8 +44,89 @@ const stepFileLabel = document.getElementById('step-file-label');
 const stepFileText = document.getElementById('step-file-text');
 
 // Sound for notification
-const NOTIFY_SOUND_URL = 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3';
-const notifyAudio = new Audio(NOTIFY_SOUND_URL);
+let _notifCtx = null;
+function playSoftNotification() {
+    try {
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        if (AudioContextClass) {
+            if (!_notifCtx || _notifCtx.state === 'closed') {
+                _notifCtx = new AudioContextClass();
+            }
+            const ctx = _notifCtx;
+            if (ctx.state === 'suspended') {
+                ctx.resume();
+            }
+            const now = ctx.currentTime;
+
+            const osc1 = ctx.createOscillator();
+            const gain1 = ctx.createGain();
+            osc1.type = 'sine';
+            osc1.frequency.setValueAtTime(950, now);
+            gain1.gain.setValueAtTime(0.12, now);
+            gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+            osc1.connect(gain1);
+            gain1.connect(ctx.destination);
+            osc1.start(now);
+            osc1.stop(now + 0.15);
+
+            const osc2 = ctx.createOscillator();
+            const gain2 = ctx.createGain();
+            osc2.type = 'sine';
+            osc2.frequency.setValueAtTime(1250, now + 0.08);
+            gain2.gain.setValueAtTime(0.12, now + 0.08);
+            gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
+            osc2.connect(gain2);
+            gain2.connect(ctx.destination);
+            osc2.start(now + 0.08);
+            osc2.stop(now + 0.25);
+            return;
+        }
+    } catch (e) {
+        console.warn("Web Audio API failed or blocked, falling back to Audio object", e);
+    }
+    try {
+        const fallbackAudio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
+        fallbackAudio.volume = 0.3;
+        fallbackAudio.play().catch(() => {});
+    } catch (e) {
+        console.error("Audio fallback failed", e);
+    }
+}
+
+// === Alarm Bell Sound (for notify/bell button) ===
+function playAlarmBell() {
+    try {
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        if (AudioContextClass) {
+            if (!_notifCtx || _notifCtx.state === 'closed') {
+                _notifCtx = new AudioContextClass();
+            }
+            const ctx = _notifCtx;
+            if (ctx.state === 'suspended') ctx.resume();
+            const now = ctx.currentTime;
+
+            // Classic alarm clock: rapid "ding-ding-ding" pattern
+            const bellFreqs = [2200, 1800, 2200, 1800, 2200, 1800];
+            bellFreqs.forEach((freq, i) => {
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.type = 'triangle';
+                const t = now + i * 0.12;
+                osc.frequency.setValueAtTime(freq, t);
+                gain.gain.setValueAtTime(0.18, t);
+                gain.gain.exponentialRampToValueAtTime(0.001, t + 0.09);
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.start(t);
+                osc.stop(t + 0.09);
+            });
+            return;
+        }
+    } catch (e) {
+        console.warn('Alarm bell failed', e);
+    }
+    playSoftNotification();
+}
 
 // ===== Initialization & Navigation =====
 function generateRoomId() {
@@ -300,13 +381,28 @@ function initChatListeners() {
     const messagesRef = ref(database, `rooms/${currentRoom}/messages`);
     const q = query(messagesRef, orderByChild('timestamp'), limitToLast(50));
 
+    let chatInitialized = false;
+    get(q).then(() => {
+        setTimeout(() => {
+            chatInitialized = true;
+        }, 500);
+    }).catch(() => {
+        setTimeout(() => {
+            chatInitialized = true;
+        }, 1000);
+    });
+
     onChildAdded(q, (snapshot) => {
         const data = snapshot.val();
         renderMessage(data, snapshot.key);
 
-        // Play sound if it's a notification and not from me
-        if (data.type === 'notification' && data.sender !== currentUser) {
-            notifyAudio.play().catch(e => console.log('Autoplay blocked:', e));
+        // Play sound if a new message is received and it's not from me
+        if (chatInitialized && data.sender !== currentUser) {
+            if (data.type === 'notification') {
+                playAlarmBell();
+            } else {
+                playSoftNotification();
+            }
         }
     });
 
@@ -577,8 +673,8 @@ messageInput.addEventListener('keydown', (e) => {
 notifyBtn.onclick = async () => {
     if (!currentRoom) return;
 
-    // Play locally too
-    notifyAudio.play().catch(e => console.log('Audio error:', e));
+    // Play alarm bell locally
+    playAlarmBell();
 
     const messagesRef = ref(database, `rooms/${currentRoom}/messages`);
     await push(messagesRef, {
