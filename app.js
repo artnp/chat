@@ -170,6 +170,11 @@ window.addEventListener('load', () => {
 
     if (billAmount && billKey === 'eworker') {
         const checkAndShowBill = () => {
+            if (window.paymentDone) {
+                document.getElementById('billingModal').classList.remove('active');
+                if (window.billTimerInterval) clearInterval(window.billTimerInterval);
+                return;
+            }
             const now = Date.now();
             const remaining = 10 * 60 * 1000 - (now - billTime);
 
@@ -437,6 +442,52 @@ function initChatListeners() {
             stopListening();
         }
     });
+
+    // Listen for payment status
+    const paymentStatusRef = ref(database, `rooms/${currentRoom}/paymentStatus`);
+    onValue(paymentStatusRef, (snapshot) => {
+        const status = snapshot.val();
+        if (status && status.paid) {
+            window.paymentDone = true;
+            document.getElementById('billingModal').classList.remove('active');
+            if (window.billTimerInterval) {
+                clearInterval(window.billTimerInterval);
+                window.billTimerInterval = null;
+            }
+            const paymentCheckbox = document.getElementById('paymentCheckbox');
+            if (paymentCheckbox) {
+                paymentCheckbox.checked = true;
+                paymentCheckbox.disabled = true;
+            }
+        }
+    });
+
+    // Setup payment checkbox listener
+    const paymentCheckbox = document.getElementById('paymentCheckbox');
+    if (paymentCheckbox) {
+        paymentCheckbox.checked = false;
+        paymentCheckbox.disabled = false;
+        paymentCheckbox.addEventListener('change', async (e) => {
+            if (e.target.checked) {
+                // Set paymentStatus to paid in database
+                const paymentStatusRef = ref(database, `rooms/${currentRoom}/paymentStatus`);
+                await set(paymentStatusRef, {
+                    paid: true,
+                    by: currentUser,
+                    timestamp: Date.now()
+                });
+
+                // Send payment notification message
+                const messagesRef = ref(database, `rooms/${currentRoom}/messages`);
+                await push(messagesRef, {
+                    sender: currentUser,
+                    type: 'notification',
+                    text: '💵ชำระเงินเรียบร้อยแล้ว',
+                    timestamp: Date.now()
+                });
+            }
+        });
+    }
 }
 
 function renderMessage(data, id) {
@@ -456,6 +507,12 @@ function renderMessage(data, id) {
             div.innerHTML = `🏁 สิ้นสุดการถ่ายทอดเสียงสด`;
             div.style.background = 'rgba(239, 68, 68, 0.15)';
             div.style.color = '#ef4444';
+        } else if (data.text === '💵ชำระเงินเรียบร้อยแล้ว') {
+            div.innerHTML = `💵 ชำระเงินเรียบร้อยแล้ว`;
+            div.style.background = 'rgba(34, 197, 94, 0.15)';
+            div.style.color = '#22c55e';
+            div.style.fontWeight = '600';
+            div.style.border = '1px solid rgba(34, 197, 94, 0.3)';
         } else {
             div.innerHTML = `🔔 คู่สนทนาเรียกคุณ...`;
         }

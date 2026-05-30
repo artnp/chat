@@ -191,45 +191,11 @@
             </div>
             <h3 style="color:var(--accent); margin-top:-10px;">ยอดชำระค่าบริการ</h3>
             <div id="billingContainer"></div>
-            <div
-                style="margin-top: 20px; font-size: 0.85rem; color: #ffffff; background: linear-gradient(135deg, #0062ff, #00a2ff); padding: 12px; border-radius: 10px; border: none; box-shadow: 0 4px 15px rgba(0, 162, 255, 0.3);">
-                <div
-                    style="font-weight: 600; margin-bottom: 5px; display: flex; align-items: center; justify-content: center; gap: 8px;">
-                    <span
-                        style="background: rgba(255,255,255,0.2); padding: 2px 6px; border-radius: 4px; font-size: 0.7rem; font-weight: bold; letter-spacing: 0.5px;">📢</span>
-                    <span>⚠️รอบหน้าจ้างฉันในระบบนี้นะ❗</span>
-                </div>
-                <div style="text-align: center; margin-top: 8px;">
-                    <a href="https://artnp.github.io/eworker" target="_blank"
-                        style="color: #ffffff; text-decoration: underline; font-weight: 500; text-underline-offset: 3px;">https://artnp.github.io/eworker</a>
-                </div>
-            </div>
-
             <div style="margin-top: 15px; text-align: center;">
-                <style>
-                    @keyframes flashYellowAlert {
-                        0% {
-                            opacity: 1;
-                            transform: scale(1);
-                        }
-
-                        50% {
-                            opacity: 0.85;
-                            transform: scale(1.02);
-                        }
-
-                        100% {
-                            opacity: 1;
-                            transform: scale(1);
-                        }
-                    }
-                </style>
-                <div
-                    style="display: inline-block; white-space: nowrap; padding: 8px 12px; border-radius: 8px; background-color: #facc15; color: #422006; font-weight: 600; font-size: 0.8rem; animation: flashYellowAlert 1.5s infinite; box-shadow: 0 4px 10px rgba(250, 204, 21, 0.4);">
-                    <i class="fa-solid fa-triangle-exclamation" style="margin-right: 5px;"></i> โอนแล้วไม่ต้องส่งสลิป!!
-                    ให้พิมพ์แจ้งว่า <span
-                        style="background: black; color: hsl(120, 100%, 66%); padding: 2px 6px; border-radius: 4px; margin: 0 2px;">เรียบร้อย</span>
-                </div>
+                <label style="display: inline-flex; align-items: center; justify-content: center; gap: 10px; padding: 12px 20px; border-radius: 12px; background-color: #1e293b; color: #f8fafc; font-weight: 600; font-size: 0.95rem; cursor: pointer; border: 1px solid #334155; user-select: none; transition: all 0.2s; box-shadow: 0 4px 10px rgba(0,0,0,0.15); width: 100%; box-sizing: border-box;">
+                    <input type="checkbox" id="paymentCheckbox" style="width: 20px; height: 20px; cursor: pointer; accent-color: #22c55e;">
+                    <span>ฉันโอนแล้วเริ่มดำเนินงานได้</span>
+                </label>
             </div>
         </div>
     </div>
