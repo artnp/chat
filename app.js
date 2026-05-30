@@ -506,11 +506,8 @@ function initChatListeners() {
     onValue(roomChangeRef, (snapshot) => {
         const data = snapshot.val();
         if (data && data.newRoom) {
-            // Build new URL preserving other params (bill, t, k, etc.) but changing room
-            const searchParams = new URLSearchParams(window.location.search);
-            searchParams.set('room', data.newRoom);
-            // Navigate to new room
-            window.location.search = '?' + searchParams.toString();
+            // Navigate to new room with ONLY the room ID (clearing bill, t, k, etc.)
+            window.location.search = `?room=${data.newRoom}`;
         }
     });
 }
