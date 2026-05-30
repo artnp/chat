@@ -87,7 +87,7 @@ function playSoftNotification() {
     try {
         const fallbackAudio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
         fallbackAudio.volume = 0.3;
-        fallbackAudio.play().catch(() => {});
+        fallbackAudio.play().catch(() => { });
     } catch (e) {
         console.error("Audio fallback failed", e);
     }
@@ -241,7 +241,7 @@ window.addEventListener('load', () => {
                 const timeStr = `${minutes}:${seconds.toString().padStart(2, '0')}`;
 
                 document.getElementById('contactModal').classList.add('active');
-                
+
                 const timerDisplay = document.getElementById('contactTimerDisplay');
                 if (timerDisplay) timerDisplay.textContent = timeStr;
             } else {
@@ -261,6 +261,18 @@ document.getElementById('closeBillingBtn').addEventListener('click', () => {
 
 document.getElementById('closeContactBtn').addEventListener('click', () => {
     document.getElementById('contactModal').classList.remove('active');
+});
+
+// ===== Change Room Button =====
+document.getElementById('changeRoomBtn').addEventListener('click', async () => {
+    if (!currentRoom) return;
+    const newRoomId = generateRoomId();
+    // Write room change signal to Firebase so the other user gets redirected too
+    await set(ref(database, `rooms/${currentRoom}/roomChange`), {
+        newRoom: newRoomId,
+        by: currentUser,
+        timestamp: Date.now()
+    });
 });
 
 // ===== Large File Upload Logic (Cloud) =====
@@ -482,12 +494,25 @@ function initChatListeners() {
                 await push(messagesRef, {
                     sender: currentUser,
                     type: 'notification',
-                    text: '💵ชำระเงินเรียบร้อยแล้ว',
+                    text: '💸 ได้มีการแจ้งชำระเงินเรียบร้อยแล้ว',
                     timestamp: Date.now()
                 });
             }
         });
     }
+
+    // Listen for room change
+    const roomChangeRef = ref(database, `rooms/${currentRoom}/roomChange`);
+    onValue(roomChangeRef, (snapshot) => {
+        const data = snapshot.val();
+        if (data && data.newRoom) {
+            // Build new URL preserving other params (bill, t, k, etc.) but changing room
+            const searchParams = new URLSearchParams(window.location.search);
+            searchParams.set('room', data.newRoom);
+            // Navigate to new room
+            window.location.search = '?' + searchParams.toString();
+        }
+    });
 }
 
 function renderMessage(data, id) {
@@ -507,11 +532,14 @@ function renderMessage(data, id) {
             div.innerHTML = `🏁 สิ้นสุดการถ่ายทอดเสียงสด`;
             div.style.background = 'rgba(239, 68, 68, 0.15)';
             div.style.color = '#ef4444';
-        } else if (data.text === '💵ชำระเงินเรียบร้อยแล้ว') {
-            div.innerHTML = `💵 ชำระเงินเรียบร้อยแล้ว`;
+        } else if (data.text === '💸 ได้มีการแจ้งชำระเงินเรียบร้อยแล้ว') {
+            div.setAttribute('data-id', id);
+            div.setAttribute('data-timestamp', data.timestamp);
+            div.innerHTML = `💸 ได้มีการแจ้งชำระเงินเรียบร้อยแล้ว`;
             div.style.background = 'rgba(34, 197, 94, 0.15)';
             div.style.color = '#22c55e';
             div.style.fontWeight = '600';
+            div.style.fontSize = '0.72rem';
             div.style.border = '1px solid rgba(34, 197, 94, 0.3)';
         } else {
             div.innerHTML = `🔔 คู่สนทนาเรียกคุณ...`;
@@ -675,7 +703,7 @@ window.openImagePopup = function (imgSrc) {
 
 function updateCountdowns() {
     const now = Date.now();
-    document.querySelectorAll('.message-bubble').forEach(el => {
+    document.querySelectorAll('.message-bubble, .message-notification[data-timestamp]').forEach(el => {
         const timestamp = parseInt(el.getAttribute('data-timestamp'));
         const remaining = DELETION_TIME_MS - (now - timestamp);
         const timerEl = el.querySelector('.countdown');

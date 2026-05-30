@@ -392,15 +392,84 @@ body {
     border-top: 1px solid var(--border);
 }
 
+.input-container {
+    width: 100%;
+    position: relative;
+    display: flex;
+    align-items: flex-end;
+    gap: 12px;
+}
+
 .input-wrapper {
-    max-width: 800px;
-    margin: 0 auto;
+    flex: 1;
     background: var(--sidebar-bg);
     border: 1px solid var(--border);
     border-radius: 8px;
     display: flex;
     align-items: flex-end;
     padding: 10px;
+}
+
+/* On desktop, keep the input bar centered (800px) and push the change room button to the far right of the screen */
+@media (min-width: 1180px) {
+    .input-container {
+        justify-content: center;
+    }
+    .input-wrapper {
+        flex: none;
+        width: 100%;
+        max-width: 800px;
+    }
+    .change-room-btn-outer {
+        position: absolute;
+        right: 0;
+        bottom: 0;
+    }
+}
+
+.change-room-btn-outer {
+    background: var(--sidebar-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    height: 58px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 0 20px;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    flex-shrink: 0;
+    color: var(--text-main);
+    font-family: inherit;
+    font-size: 0.95rem;
+    font-weight: 500;
+}
+
+.change-room-btn-outer img {
+    width: 24px;
+    height: 24px;
+    object-fit: contain;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.change-room-btn-outer span {
+    white-space: nowrap;
+}
+
+.change-room-btn-outer:hover {
+    border-color: var(--accent);
+    background: rgba(130, 87, 229, 0.1);
+    box-shadow: 0 0 15px var(--accent-glow);
+    color: #fff;
+}
+
+.change-room-btn-outer:hover img {
+    transform: rotate(20deg) scale(1.15);
+}
+
+.change-room-btn-outer:active {
+    transform: scale(0.95);
 }
 
 #messageInput {
