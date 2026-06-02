@@ -9,7 +9,7 @@ const firebaseConfig = {
 };
 
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
-import { getDatabase, ref, push, onChildAdded, onChildRemoved, query, orderByChild, limitToLast, remove, get, set, onValue, endAt, onDisconnect as fbOnDisconnect } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js';
+import { getDatabase, ref, push, onChildAdded, onChildChanged, onChildRemoved, query, orderByChild, limitToLast, remove, get, set, onValue, endAt, onDisconnect as fbOnDisconnect } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js';
 
 const app = initializeApp(firebaseConfig);
 const database = getDatabase(app);
@@ -413,6 +413,11 @@ function initChatListeners() {
         const data = snapshot.val();
         renderMessage(data, snapshot.key);
 
+        // Mark as read if the message is from the other user and not yet read
+        if (data.sender !== currentUser && !data.read) {
+            set(ref(database, `rooms/${currentRoom}/messages/${snapshot.key}/read`), true);
+        }
+
         // Play sound if a new message is received and it's not from me
         if (chatInitialized && data.sender !== currentUser) {
             if (data.type === 'notification') {
@@ -421,6 +426,12 @@ function initChatListeners() {
                 playSoftNotification();
             }
         }
+    });
+
+    onChildChanged(q, (snapshot) => {
+        const key = snapshot.key;
+        const data = snapshot.val();
+        updateMessageReadStatus(key, data);
     });
 
     onChildRemoved(messagesRef, (snapshot) => {
@@ -649,7 +660,10 @@ function renderMessage(data, id) {
     contentHTML += `
         <div class="message-meta" ${markButtonHTML ? 'style="justify-content: space-between; align-items: center; width: 100%;"' : ''}>
             ${markButtonHTML}
-            <div style="display: flex; gap: 8px;"><span>ทำลายทิ้งใน </span><span class="countdown">--:--</span></div>
+            <div style="display: flex; gap: 8px;">
+                ${isMe ? `<span class="read-status" style="color: #34d399; font-weight: 500; margin-right: 4px;">${data.read ? 'อ่านแล้ว' : ''}</span>` : ''}
+                <span>ทำลายทิ้งใน </span><span class="countdown">--:--</span>
+            </div>
         </div>
     `;
 
@@ -713,6 +727,16 @@ function updateCountdowns() {
             timerEl.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
         }
     });
+}
+
+function updateMessageReadStatus(key, data) {
+    const el = document.querySelector(`[data-id="${key}"]`);
+    if (el) {
+        const readStatusEl = el.querySelector('.read-status');
+        if (readStatusEl) {
+            readStatusEl.textContent = data.read ? 'อ่านแล้ว' : '';
+        }
+    }
 }
 
 async function sendMessage(text = null, fileData = null) {
@@ -1547,7 +1571,81 @@ const annotateCloseBtn = document.getElementById('annotateCloseBtn');
 const annotateAddBoxBtn = document.getElementById('annotateAddBoxBtn');
 const annotateSendBtn = document.getElementById('annotateSendBtn');
 
+// Floating zoom controls
+const annotateZoomInBtn = document.getElementById('annotateZoomInBtn');
+const annotateZoomOutBtn = document.getElementById('annotateZoomOutBtn');
+const annotateZoomResetBtn = document.getElementById('annotateZoomResetBtn');
+
 let annotateImageSrc = null; // current image being annotated
+let zoomScale = 1;
+let panX = 0;
+let panY = 0;
+let isPanning = false;
+let startPanX = 0, startPanY = 0;
+let startMouseX = 0, startMouseY = 0;
+let activePointers = [];
+let initialDist = 0;
+let initialScale = 1;
+
+// Function to apply zoom and pan transforms to the viewport
+function applyZoomPan() {
+    const viewport = annotateCanvasContainer.querySelector('.canvas-viewport');
+    if (viewport) {
+        viewport.style.transform = `translate(${panX}px, ${panY}px) scale(${zoomScale})`;
+        viewport.style.transformOrigin = 'center center';
+    }
+}
+
+// Function to dynamically adjust padding to prevent tooltips from getting cut off
+function updateContainerPadding() {
+    const viewport = annotateCanvasContainer.querySelector('.canvas-viewport');
+    if (!viewport) return;
+
+    const boxes = viewport.querySelectorAll('.ann-box');
+    let maxLeft = 0, maxRight = 0, maxTop = 0, maxBottom = 0;
+    const vWidth = viewport.offsetWidth;
+    const vHeight = viewport.offsetHeight;
+
+    boxes.forEach(box => {
+        const label = box.querySelector('.ann-label');
+        if (!label) return;
+
+        // Measure label dimensions
+        const labelWidth = label.offsetWidth || 120;
+        const labelHeight = label.offsetHeight || 40;
+
+        const boxLeft = box.offsetLeft;
+        const boxTop = box.offsetTop;
+        const boxWidth = box.offsetWidth;
+        const boxHeight = box.offsetHeight;
+
+        // Label is centered horizontally below the box:
+        const labelLeft = boxLeft + (boxWidth / 2) - (labelWidth / 2);
+        const labelRight = labelLeft + labelWidth;
+        const labelTop = boxTop + boxHeight + 10;
+        const labelBottom = labelTop + labelHeight;
+
+        // Check overflows relative to viewport boundaries
+        if (labelLeft < 0) maxLeft = Math.max(maxLeft, -labelLeft);
+        if (labelRight > vWidth) maxRight = Math.max(maxRight, labelRight - vWidth);
+        if (labelTop < 0) maxTop = Math.max(maxTop, -labelTop);
+        if (labelBottom > vHeight) maxBottom = Math.max(maxBottom, labelBottom - vHeight);
+
+        // Also check the box itself
+        if (boxLeft < 0) maxLeft = Math.max(maxLeft, -boxLeft);
+        if (boxLeft + boxWidth > vWidth) maxRight = Math.max(maxRight, (boxLeft + boxWidth) - vWidth);
+        if (boxTop < 0) maxTop = Math.max(maxTop, -boxTop);
+        if (boxTop + boxHeight > vHeight) maxBottom = Math.max(maxBottom, (boxTop + boxHeight) - vHeight);
+    });
+
+    // Apply padding + safety margin (20px) to annotateCanvasContainer
+    const pLeft = maxLeft ? maxLeft + 20 : 20;
+    const pRight = maxRight ? maxRight + 20 : 20;
+    const pTop = maxTop ? maxTop + 20 : 20;
+    const pBottom = maxBottom ? maxBottom + 20 : 20;
+
+    annotateCanvasContainer.style.padding = `${pTop}px ${pRight}px ${pBottom}px ${pLeft}px`;
+}
 
 // Open modal with image
 window.openAnnotateModal = function (imgSrc) {
@@ -1556,38 +1654,42 @@ window.openAnnotateModal = function (imgSrc) {
     annotateSendBtn.classList.remove('ready');
     annotateAddBoxBtn.classList.add('pulse');
 
-    // Load image onto a canvas
+    // Reset zoom and pan
+    zoomScale = 1;
+    panX = 0;
+    panY = 0;
+    annotateCanvasContainer.style.padding = '20px'; // default padding
+
+    // Load image onto a canvas wrapped in a viewport
     const img = new Image();
     img.crossOrigin = 'anonymous';
-    img.onload = () => {
+    
+    const handleImageLoad = (loadedImg) => {
+        const viewport = document.createElement('div');
+        viewport.className = 'canvas-viewport';
+
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
-        canvas.width = img.naturalWidth;
-        canvas.height = img.naturalHeight;
-        canvas.style.width = '100%';
-        canvas.style.height = 'auto';
-        ctx.drawImage(img, 0, 0);
-        annotateCanvasContainer.appendChild(canvas);
+        canvas.width = loadedImg.naturalWidth;
+        canvas.height = loadedImg.naturalHeight;
+        ctx.drawImage(loadedImg, 0, 0);
+
+        viewport.appendChild(canvas);
+        annotateCanvasContainer.appendChild(viewport);
+
+        applyZoomPan();
+        updateContainerPadding();
 
         // Show modal
         annotateModal.classList.add('active');
         document.body.style.overflow = 'hidden';
     };
+
+    img.onload = () => handleImageLoad(img);
     img.onerror = () => {
         // For base64 images, try without crossOrigin
         const img2 = new Image();
-        img2.onload = () => {
-            const canvas = document.createElement('canvas');
-            const ctx = canvas.getContext('2d');
-            canvas.width = img2.naturalWidth;
-            canvas.height = img2.naturalHeight;
-            canvas.style.width = '100%';
-            canvas.style.height = 'auto';
-            ctx.drawImage(img2, 0, 0);
-            annotateCanvasContainer.appendChild(canvas);
-            annotateModal.classList.add('active');
-            document.body.style.overflow = 'hidden';
-        };
+        img2.onload = () => handleImageLoad(img2);
         img2.src = imgSrc;
     };
     img.src = imgSrc;
@@ -1606,12 +1708,15 @@ annotateAddBoxBtn.onclick = () => {
     annotateAddBoxBtn.classList.remove('pulse');
     annotateSendBtn.classList.add('ready');
 
-    const cWidth = annotateCanvasContainer.offsetWidth;
-    const cHeight = annotateCanvasContainer.offsetHeight;
+    const viewport = annotateCanvasContainer.querySelector('.canvas-viewport');
+    if (!viewport) return;
+
+    const cWidth = viewport.offsetWidth;
+    const cHeight = viewport.offsetHeight;
     const bWidth = 120;
     const bHeight = 80;
 
-    const rect = annotateCanvasContainer.getBoundingClientRect();
+    const rect = viewport.getBoundingClientRect();
     let yCenter = (window.innerHeight / 2) - rect.top - (bHeight / 2);
     if (yCenter < 20) yCenter = 20;
     if (yCenter + bHeight > cHeight - 20) yCenter = cHeight - bHeight - 20;
@@ -1621,6 +1726,9 @@ annotateAddBoxBtn.onclick = () => {
 };
 
 function createAnnBox(data) {
+    const viewport = annotateCanvasContainer.querySelector('.canvas-viewport');
+    if (!viewport) return;
+
     const box = document.createElement('div');
     box.className = 'ann-box';
     box.style.left = data.x + 'px';
@@ -1635,8 +1743,9 @@ function createAnnBox(data) {
     close.onpointerdown = (e) => {
         e.stopPropagation();
         box.remove();
+        updateContainerPadding();
         // Check if any boxes left
-        if (annotateCanvasContainer.querySelectorAll('.ann-box').length === 0) {
+        if (viewport.querySelectorAll('.ann-box').length === 0) {
             annotateSendBtn.classList.remove('ready');
         }
     };
@@ -1648,6 +1757,9 @@ function createAnnBox(data) {
     label.contentEditable = true;
     label.textContent = data.text || '';
     label.onpointerdown = e => e.stopPropagation();
+    label.oninput = () => {
+        updateContainerPadding();
+    };
     box.appendChild(label);
 
     // Resizers
@@ -1657,8 +1769,9 @@ function createAnnBox(data) {
         box.appendChild(r);
     });
 
-    annotateCanvasContainer.appendChild(box);
+    viewport.appendChild(box);
     makeAnnDraggableAndResizable(box);
+    updateContainerPadding();
 }
 
 function makeAnnDraggableAndResizable(el) {
@@ -1702,8 +1815,9 @@ function makeAnnDraggableAndResizable(el) {
     function onMove(e) {
         e.preventDefault();
         if (isResizing) {
-            const dx = e.clientX - startX;
-            const dy = e.clientY - startY;
+            // Adjust pointers delta movement based on current zoom scale
+            const dx = (e.clientX - startX) / zoomScale;
+            const dy = (e.clientY - startY) / zoomScale;
             let w = startW, h = startH, l = startL, t = startT;
 
             if (dir.includes('r')) w += dx;
@@ -1716,22 +1830,28 @@ function makeAnnDraggableAndResizable(el) {
                 el.style.height = h + 'px';
                 el.style.left = l + 'px';
                 el.style.top = t + 'px';
+                updateContainerPadding();
             }
         } else if (isDragging) {
-            const dx = e.clientX - startX;
-            const dy = e.clientY - startY;
+            const dx = (e.clientX - startX) / zoomScale;
+            const dy = (e.clientY - startY) / zoomScale;
             el.style.left = (startL + dx) + 'px';
             el.style.top = (startT + dy) + 'px';
+            updateContainerPadding();
         }
     }
 
     function onUp(e) {
-        // Drag out to delete
-        const rect = annotateCanvasContainer.getBoundingClientRect();
-        if (isDragging && (e.clientX < rect.left || e.clientX > rect.right || e.clientY < rect.top || e.clientY > rect.bottom)) {
-            el.remove();
-            if (annotateCanvasContainer.querySelectorAll('.ann-box').length === 0) {
-                annotateSendBtn.classList.remove('ready');
+        const viewport = annotateCanvasContainer.querySelector('.canvas-viewport');
+        if (viewport) {
+            const rect = viewport.getBoundingClientRect();
+            // Drag out of viewport bounds to delete
+            if (isDragging && (e.clientX < rect.left || e.clientX > rect.right || e.clientY < rect.top || e.clientY > rect.bottom)) {
+                el.remove();
+                updateContainerPadding();
+                if (viewport.querySelectorAll('.ann-box').length === 0) {
+                    annotateSendBtn.classList.remove('ready');
+                }
             }
         }
 
@@ -1741,7 +1861,106 @@ function makeAnnDraggableAndResizable(el) {
         document.removeEventListener('pointermove', onMove);
         document.removeEventListener('pointerup', onUp);
         el.releasePointerCapture(e.pointerId);
+        updateContainerPadding();
     }
+}
+
+// Zoom & Pan Event Listeners on .annotate-body
+const annotateBody = document.querySelector('.annotate-body');
+
+annotateBody.addEventListener('pointerdown', e => {
+    // Only pan if we clicked the background (or canvas)
+    const viewport = annotateCanvasContainer.querySelector('.canvas-viewport');
+    if (e.target === annotateBody || e.target === annotateCanvasContainer || (viewport && e.target.tagName === 'CANVAS')) {
+        isPanning = true;
+        annotateBody.style.cursor = 'grabbing';
+        startPanX = panX;
+        startPanY = panY;
+        startMouseX = e.clientX;
+        startMouseY = e.clientY;
+        annotateBody.setPointerCapture(e.pointerId);
+    }
+
+    // Touch pinch-to-zoom setup
+    activePointers.push(e);
+    if (activePointers.length === 2) {
+        isPanning = false;
+        const p1 = activePointers[0];
+        const p2 = activePointers[1];
+        initialDist = Math.hypot(p1.clientX - p2.clientX, p1.clientY - p2.clientY);
+        initialScale = zoomScale;
+    }
+});
+
+annotateBody.addEventListener('pointermove', e => {
+    // Update pointer position
+    const index = activePointers.findIndex(p => p.pointerId === e.pointerId);
+    if (index !== -1) {
+        activePointers[index] = e;
+    }
+
+    if (isPanning) {
+        const dx = e.clientX - startMouseX;
+        const dy = e.clientY - startMouseY;
+        panX = startPanX + dx;
+        panY = startPanY + dy;
+        applyZoomPan();
+    } else if (activePointers.length === 2) {
+        const p1 = activePointers[0];
+        const p2 = activePointers[1];
+        const dist = Math.hypot(p1.clientX - p2.clientX, p1.clientY - p2.clientY);
+        if (initialDist > 0) {
+            const factor = dist / initialDist;
+            zoomScale = Math.max(0.3, Math.min(5, initialScale * factor));
+            applyZoomPan();
+        }
+    }
+});
+
+const handlePointerEnd = (e) => {
+    activePointers = activePointers.filter(p => p.pointerId !== e.pointerId);
+    if (activePointers.length < 2) {
+        initialDist = 0;
+    }
+    if (isPanning) {
+        isPanning = false;
+        annotateBody.style.cursor = '';
+        try { annotateBody.releasePointerCapture(e.pointerId); } catch (err) {}
+    }
+};
+
+annotateBody.addEventListener('pointerup', handlePointerEnd);
+annotateBody.addEventListener('pointercancel', handlePointerEnd);
+
+// Mouse Wheel Zoom Listener
+annotateBody.addEventListener('wheel', e => {
+    e.preventDefault();
+    const zoomFactor = 0.1;
+    const delta = e.deltaY < 0 ? 1 : -1;
+    zoomScale = Math.max(0.3, Math.min(5, zoomScale + delta * zoomFactor));
+    applyZoomPan();
+}, { passive: false });
+
+// Zoom Controls Buttons
+if (annotateZoomInBtn) {
+    annotateZoomInBtn.onclick = () => {
+        zoomScale = Math.min(5, zoomScale + 0.15);
+        applyZoomPan();
+    };
+}
+if (annotateZoomOutBtn) {
+    annotateZoomOutBtn.onclick = () => {
+        zoomScale = Math.max(0.3, zoomScale - 0.15);
+        applyZoomPan();
+    };
+}
+if (annotateZoomResetBtn) {
+    annotateZoomResetBtn.onclick = () => {
+        zoomScale = 1;
+        panX = 0;
+        panY = 0;
+        applyZoomPan();
+    };
 }
 
 // Send annotated image to chat
@@ -1749,7 +1968,10 @@ annotateSendBtn.onclick = async () => {
     if (!annotateSendBtn.classList.contains('ready')) return;
     if (!currentRoom) return;
 
-    const boxes = annotateCanvasContainer.querySelectorAll('.ann-box');
+    const viewport = annotateCanvasContainer.querySelector('.canvas-viewport');
+    if (!viewport) return;
+
+    const boxes = viewport.querySelectorAll('.ann-box');
     if (boxes.length === 0) return;
 
     // Mark empty labels
@@ -1767,9 +1989,23 @@ annotateSendBtn.onclick = async () => {
     annotateSendBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> กำลังส่ง...';
     annotateSendBtn.style.pointerEvents = 'none';
 
+    // Save current zoom state
+    const savedScale = zoomScale;
+    const savedPanX = panX;
+    const savedPanY = panY;
+
     try {
+        // Reset zoom/pan so html2canvas captures 1:1 image layout
+        zoomScale = 1;
+        panX = 0;
+        panY = 0;
+        applyZoomPan();
+
         // Hide UI elements for capture
         annotateCanvasContainer.classList.add('exporting');
+
+        // Let layout settle for a frame
+        await new Promise(resolve => requestAnimationFrame(resolve));
 
         const canvasResult = await html2canvas(annotateCanvasContainer, {
             scale: 2,
@@ -1801,6 +2037,12 @@ annotateSendBtn.onclick = async () => {
         alert('เกิดข้อผิดพลาดในการส่ง: ' + err.message);
         annotateCanvasContainer.classList.remove('exporting');
     } finally {
+        // Restore zoom state
+        zoomScale = savedScale;
+        panX = savedPanX;
+        panY = savedPanY;
+        applyZoomPan();
+
         annotateSendBtn.innerHTML = origHTML;
         annotateSendBtn.style.pointerEvents = '';
     }

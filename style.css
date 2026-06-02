@@ -1021,6 +1021,47 @@ body {
     align-items: flex-start;
     justify-content: center;
     padding: 20px;
+    position: relative; /* For floating zoom controls */
+}
+
+/* Floating Zoom Controls */
+.annotate-zoom-controls {
+    position: absolute;
+    top: 24px;
+    right: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    z-index: 10005;
+}
+
+.annotate-zoom-controls button {
+    background: rgba(18, 18, 20, 0.8);
+    border: 1px solid var(--border);
+    color: var(--text-main);
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 16px;
+    transition: all 0.2s ease;
+    backdrop-filter: blur(8px);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+}
+
+.annotate-zoom-controls button:hover {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: white;
+    transform: scale(1.1);
+    box-shadow: 0 0 15px var(--accent-glow);
+}
+
+.annotate-zoom-controls button:active {
+    transform: scale(0.95);
 }
 
 .annotate-canvas-container {
@@ -1031,9 +1072,19 @@ body {
     box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
     max-width: 100%;
     overflow: visible;
+    padding: 20px; /* default padding */
+    box-sizing: content-box;
+    transition: padding 0.15s ease;
 }
 
-.annotate-canvas-container canvas {
+/* Canvas Viewport containing Canvas & Annotation Boxes */
+.canvas-viewport {
+    position: relative;
+    display: inline-block;
+    transition: transform 0.1s ease-out;
+}
+
+.canvas-viewport canvas {
     display: block;
     max-width: 100%;
     height: auto;
@@ -1041,7 +1092,7 @@ body {
 }
 
 /* Annotation Box */
-.annotate-canvas-container .ann-box {
+.canvas-viewport .ann-box {
     position: absolute;
     border: 3px dashed #ef4444;
     background: rgba(239, 68, 68, 0.1);
