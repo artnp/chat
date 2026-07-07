@@ -1715,6 +1715,12 @@ body {
     word-wrap: break-word;
 }
 
+.download-toast.show {
+    background: rgba(14, 165, 233, 0.9) !important;
+    backdrop-filter: blur(8px);
+    z-index: 10002 !important;
+}
+
 /* Thumbnail download button overlay on images */
 .thumb-download-btn {
     position: absolute;

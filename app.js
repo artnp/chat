@@ -693,34 +693,104 @@ window.handleImgError = function (img, linkUrl, filename) {
     }
 };
 
-// Function to force download when clicked (with mobile support)
+// ===== Download Helper with multiple fallbacks for mobile in-app browsers =====
+function showDownloadToast(msg, duration) {
+    const t = document.getElementById('downloadToast');
+    if (!t) return;
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(t._hide);
+    t._hide = setTimeout(() => t.classList.remove('show'), duration || 3000);
+}
+
+function triggerDownload(href, filename) {
+    const link = document.createElement('a');
+    link.href = href;
+    link.download = filename;
+    link.style.display = 'none';
+    document.body.appendChild(link);
+    link.click();
+    setTimeout(() => { document.body.removeChild(link); if (href.startsWith('blob:')) URL.revokeObjectURL(href); }, 1000);
+}
+
+function isImageFile(filename) {
+    return /\.(jpe?g|png|gif|webp|bmp|svg|ico)$/i.test(filename);
+}
+
 window.forceDownload = async function (url, filename) {
+    // Strategy 1: data: URL → direct download (always works)
     if (url.startsWith('data:')) {
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = filename;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+        triggerDownload(url, filename);
         return;
     }
+
+    showDownloadToast('กำลังดาวน์โหลด...', 60000);
+
+    // Strategy 2: CORS proxy → blob download
     try {
         const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(url)}`;
-        const response = await fetch(proxyUrl);
-        if (response.ok) {
-            const blob = await response.blob();
+        const res = await fetch(proxyUrl);
+        if (res.ok) {
+            const blob = await res.blob();
             const blobUrl = URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.href = blobUrl;
-            link.download = filename;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            URL.revokeObjectURL(blobUrl);
+            triggerDownload(blobUrl, filename);
+            showDownloadToast('ดาวน์โหลดสำเร็จ ✓', 2000);
             return;
         }
-    } catch (e) { /* fallback */ }
-    window.open(url, '_blank');
+    } catch (e) {}
+
+    // Strategy 3: For images, use canvas (bypasses CORS for same-origin/base64)
+    if (isImageFile(filename)) {
+        try {
+            const img = new Image();
+            img.crossOrigin = 'anonymous';
+            await new Promise((resolve, reject) => { img.onload = resolve; img.onerror = reject; img.src = url; });
+            const c = document.createElement('canvas');
+            c.width = img.naturalWidth; c.height = img.naturalHeight;
+            c.getContext('2d').drawImage(img, 0, 0);
+            c.toBlob(blob => {
+                if (blob) { triggerDownload(URL.createObjectURL(blob), filename); showDownloadToast('ดาวน์โหลดสำเร็จ ✓', 2000); }
+            });
+            return;
+        } catch (e) {}
+    }
+
+    // Strategy 4: For PDFs, try fetching directly (some servers allow)
+    try {
+        const res = await fetch(url);
+        if (res.ok) {
+            const blob = await res.blob();
+            triggerDownload(URL.createObjectURL(blob), filename);
+            showDownloadToast('ดาวน์โหลดสำเร็จ ✓', 2000);
+            return;
+        }
+    } catch (e) {}
+
+    // Strategy 5: Navigate to file URL directly (forces system browser)
+    // Some browsers will show the file, user can tap "Save" or "Download"
+    try {
+        if (navigator.share) {
+            const res = await fetch(url);
+            if (res.ok) {
+                const blob = await res.blob();
+                const file = new File([blob], filename, { type: blob.type || 'application/octet-stream' });
+                await navigator.share({ files: [file], title: filename });
+                showDownloadToast('เลือกบันทึกไฟล์ได้เลย ✓', 2000);
+                return;
+            }
+        }
+    } catch (e) { /* user cancelled share or not supported */ }
+
+    // Strategy 6: Try to open in new tab
+    const w = window.open(url, '_blank');
+    if (w) {
+        showDownloadToast('เปิดไฟล์ในแท็บใหม่แล้ว — กดดาวน์โหลดหรือบันทึกจากตรงนั้น', 5000);
+        return;
+    }
+
+    // Strategy 7: Navigate current page to the file (last resort)
+    location.href = url;
+    showDownloadToast('กำลังเปิดไฟล์ — กดดาวน์โหลดหรือบันทึกจากหน้านี้', 5000);
 };
 
 // Function to open image in zoomable lightbox popup
