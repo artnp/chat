@@ -1316,7 +1316,8 @@ body {
 }
 
 /* Mark Button on Image Bubbles */
-.mark-image-btn {
+.mark-image-btn,
+.download-image-btn {
     display: inline-flex;
     align-items: center;
     gap: 6px;
@@ -1324,15 +1325,16 @@ body {
     padding: 5px 12px;
     border: none;
     border-radius: 100px;
-    background: rgba(14, 165, 233, 0.15);
-    /* light blue */
-    color: #0ea5e9;
-    /* blue text */
     font-size: 0.75rem;
     font-weight: 600;
     cursor: pointer;
     transition: all 0.25s ease;
     font-family: 'Inter', 'Kanit', sans-serif;
+}
+
+.mark-image-btn {
+    background: rgba(14, 165, 233, 0.15);
+    color: #0ea5e9;
 }
 
 .mark-image-btn:hover {
@@ -1341,7 +1343,19 @@ body {
     transform: translateY(-1px);
 }
 
-.mark-image-btn:active {
+.download-image-btn {
+    background: rgba(34, 197, 94, 0.15);
+    color: #22c55e;
+}
+
+.download-image-btn:hover {
+    background: rgba(34, 197, 94, 0.3);
+    color: #4ade80;
+    transform: translateY(-1px);
+}
+
+.mark-image-btn:active,
+.download-image-btn:active {
     transform: scale(0.95);
 }
 
@@ -1417,14 +1431,15 @@ body {
     left: 0;
     width: 100vw;
     height: 100vh;
-    background: rgba(0, 0, 0, 0.92);
+    background: rgba(0, 0, 0, 0.95);
     backdrop-filter: blur(10px);
     z-index: 20000;
     align-items: center;
     justify-content: center;
-    cursor: zoom-out;
     opacity: 0;
     transition: opacity 0.3s ease;
+    overflow: hidden;
+    touch-action: none;
 }
 
 .image-lightbox.active {
@@ -1438,7 +1453,16 @@ body {
     object-fit: contain;
     border-radius: 8px;
     box-shadow: 0 10px 50px rgba(0, 0, 0, 0.5);
-    cursor: default;
+    cursor: grab;
+    user-select: none;
+    -webkit-user-select: none;
+    pointer-events: auto;
+    touch-action: none;
+    transform-origin: center center;
+}
+
+.image-lightbox img:active {
+    cursor: grabbing;
 }
 
 .lightbox-close {
@@ -1457,12 +1481,36 @@ body {
     align-items: center;
     justify-content: center;
     transition: all 0.2s;
-    z-index: 1;
+    z-index: 20001;
 }
 
 .lightbox-close:hover {
     background: rgba(239, 68, 68, 0.6);
     transform: scale(1.1);
+}
+
+/* Lightbox Zoom Instructions */
+.lightbox-zoom-hint {
+    position: absolute;
+    bottom: 30px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0, 0, 0, 0.8);
+    color: white;
+    padding: 10px 20px;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    z-index: 20001;
+    pointer-events: none;
+    opacity: 0.8;
+    animation: hintFade 3s ease-in-out;
+}
+
+@keyframes hintFade {
+    0% { opacity: 0; }
+    10% { opacity: 0.8; }
+    90% { opacity: 0.8; }
+    100% { opacity: 0; }
 }
 
 /* Image Loading States for Better Compatibility */
@@ -1539,4 +1587,40 @@ body {
     text-align: center;
     max-width: 90vw;
     word-wrap: break-word;
+    padding: 12px 24px;
+    font-weight: 500;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+/* Download overlay improvements for mobile */
+.download-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 0.9rem;
+    font-weight: 500;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    backdrop-filter: blur(3px);
+    text-align: center;
+    padding: 10px;
+}
+
+/* On mobile, always show download overlay hint */
+@media (max-width: 768px) {
+    .message-media-container .download-overlay {
+        opacity: 0.7;
+    }
+    
+    .message-media-container:active .download-overlay {
+        opacity: 1;
+        background: rgba(0, 0, 0, 0.7);
+    }
 }
