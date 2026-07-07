@@ -162,35 +162,56 @@
         <div class="annotate-modal-inner">
             <div class="annotate-header">
                 <h3><i class="fa-solid fa-pen-to-square"></i> วงจุดแก้ไข</h3>
-                <button id="annotateCloseBtn" class="annotate-close-btn"><i class="fa-solid fa-times"></i></button>
+                <div class="annotate-header-right">
+                    <span class="annotate-hint">ซูมได้ด้วยสองนิ้ว</span>
+                    <button id="annotateCloseBtn" class="annotate-close-btn"><i class="fa-solid fa-xmark"></i> <span>ปิด</span></button>
+                </div>
             </div>
             <div class="annotate-body">
                 <div class="annotate-zoom-controls">
                     <button id="annotateZoomInBtn" title="ซูมเข้า"><i class="fa-solid fa-plus"></i></button>
                     <button id="annotateZoomOutBtn" title="ซูมออก"><i class="fa-solid fa-minus"></i></button>
-                    <button id="annotateZoomResetBtn" title="รีเซ็ต"><i class="fa-solid fa-arrows-to-circle"></i></button>
+                    <button id="annotateZoomResetBtn" title="รีเซ็ต"><i class="fa-solid fa-expand"></i></button>
                 </div>
                 <div id="annotateCanvasContainer" class="annotate-canvas-container"></div>
             </div>
             <div class="annotate-toolbar">
-                <button class="annotate-btn annotate-btn-tool" id="annotateAddBoxBtn">
-                    <i class="fa-regular fa-circle"></i>
-                    <span>วงจุดแก้</span>
+                <button class="annotate-btn annotate-btn-add" id="annotateAddBoxBtn">
+                    <i class="fa-regular fa-circle-dashed"></i> เพิ่มจุดแก้ไข
                 </button>
-                <div class="annotate-toolbar-divider"></div>
                 <button class="annotate-btn annotate-btn-send" id="annotateSendBtn">
-                    <i class="fa-solid fa-paper-plane"></i>
-                    <span>ส่งในแชท</span>
+                    <i class="fa-solid fa-paper-plane"></i> <span>ส่งในแชท</span>
                 </button>
             </div>
         </div>
     </div>
 
-    <!-- Image Lightbox Popup -->
+    <!-- Image Lightbox Popup with Zoom -->
     <div id="imageLightbox" class="image-lightbox">
-        <button class="lightbox-close" onclick="document.getElementById('imageLightbox').classList.remove('active')">&times;</button>
-        <img id="lightboxImg" src="" alt="Preview">
-        <div class="lightbox-zoom-hint">💡 ปรับซูม: ล้อเมาส์ / 2 นิ้วบีบ / แตะ 2 ครั้ง</div>
+        <div class="lightbox-topbar">
+            <span class="lightbox-zoom-level" id="lightboxZoomLevel">100%</span>
+            <div class="lightbox-topbar-right">
+                <button class="lightbox-zoom-btn" id="lightboxZoomOutBtn" title="ซูมออก"><i class="fa-solid fa-minus"></i></button>
+                <button class="lightbox-zoom-btn" id="lightboxZoomInBtn" title="ซูมเข้า"><i class="fa-solid fa-plus"></i></button>
+                <button class="lightbox-zoom-btn" id="lightboxZoomResetBtn" title="ปรับขนาดพอดี"><i class="fa-solid fa-arrows-to-circle"></i></button>
+            </div>
+        </div>
+        <div class="lightbox-body" id="lightboxBody">
+            <div class="lightbox-viewport" id="lightboxViewport">
+                <img id="lightboxImg" src="" alt="Preview" draggable="false">
+            </div>
+            <div class="lightbox-actions">
+                <button class="lb-action-btn lb-download" id="lightboxDownloadBtn">
+                    <i class="fa-solid fa-download"></i> ดาวน์โหลด
+                </button>
+                <button class="lb-action-btn lb-annotate" id="lightboxAnnotateBtn">
+                    <i class="fa-regular fa-circle"></i> วงจุดแก้
+                </button>
+                <button class="lb-action-btn lb-close" id="lightboxCloseBtn">
+                    <i class="fa-solid fa-times"></i> ปิด
+                </button>
+            </div>
+        </div>
     </div>
 
     <!-- Billing Modal -->
