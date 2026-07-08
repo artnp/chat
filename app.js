@@ -682,14 +682,52 @@ function renderMessage(data, id) {
 window.handleImgError = function (img, linkUrl, filename) {
     const container = img.closest('.message-media-container');
     if (container) {
-        // Replace container with a simple file link
-        const alias = document.createElement('a');
-        alias.href = 'javascript:void(0)';
-        alias.className = 'file-link';
-        alias.onclick = () => forceDownload(linkUrl, filename);
-        alias.innerHTML = `<span>📎 ${filename} (ดูภาพไม่ได้ - คลิกเพื่อเปิด)</span>`;
-        container.parentNode.insertBefore(alias, container);
-        container.remove();
+        // First check if we're in any in-app browser
+        if (isInAppBrowser()) {
+            const browserName = getBrowserName();
+            
+            // For in-app browsers, provide more helpful message
+            const alias = document.createElement('div');
+            alias.className = 'facebook-image-fallback';
+            alias.style.cssText = `
+                padding: 15px;
+                background: rgba(255, 87, 34, 0.1);
+                border-radius: 8px;
+                border: 2px dashed #ff5722;
+                margin: 10px 0;
+                text-align: center;
+            `;
+            
+            alias.innerHTML = `
+                <div style="margin-bottom: 10px; color: #ff5722; font-weight: bold;">
+                    ⚠️ ดูภาพไม่ได้ใน ${browserName}
+                </div>
+                <div style="margin-bottom: 10px;">
+                    <a href="javascript:void(0)" onclick="window.open('${linkUrl}', '_blank')" 
+                       style="color: #2196f3; text-decoration: underline; font-weight: bold;">
+                        คลิกเพื่อเปิดภาพในแท็บใหม่
+                    </a>
+                </div>
+                <div style="font-size: 0.8rem; color: #666;">
+                    หรือคัดลอกลิงค์นี้ไปเปิดในเบราว์เซอร์อื่น:<br>
+                    <code style="background: #f5f5f5; padding: 4px 8px; border-radius: 4px; font-size: 0.75rem; word-break: break-all;">
+                        ${linkUrl}
+                    </code>
+                </div>
+            `;
+            
+            container.parentNode.insertBefore(alias, container);
+            container.style.display = 'none';
+        } else {
+            // For other browsers, use the original fallback
+            const alias = document.createElement('a');
+            alias.href = 'javascript:void(0)';
+            alias.className = 'file-link';
+            alias.onclick = () => forceDownload(linkUrl, filename);
+            alias.innerHTML = `<span>📎 ${filename} (ดูภาพไม่ได้ - คลิกเพื่อเปิด)</span>`;
+            container.parentNode.insertBefore(alias, container);
+            container.remove();
+        }
     }
 };
 
@@ -718,6 +756,27 @@ function isImageFile(filename) {
 }
 
 window.forceDownload = async function (url, filename) {
+    // Check if we're in any in-app browser
+    const isInApp = isInAppBrowser();
+    const browserName = getBrowserName();
+    
+    // Strategy 0: Special handling for in-app browsers (Facebook, LINE, Instagram)
+    if (isInApp) {
+        showDownloadToast(`⚠️ เบราว์เซอร์ ${browserName} อาจบล็อกดาวน์โหลด กรุณาเปิดในเบราว์เซอร์อื่น`, 5000);
+        
+        // Try to open in new tab first (might prompt user to open in external browser)
+        const w = window.open(url, '_blank');
+        if (w) {
+            showDownloadToast('เปิดในแท็บใหม่แล้ว — กดปิดแล้วเลือก "เปิดในเบราว์เซอร์"', 5000);
+            return;
+        }
+        
+        // Fallback: Show direct link instructions
+        const linkText = `ดาวน์โหลดไม่ได้ใน ${browserName}:\n\n1. คัดลอกลิงค์นี้: ${url}\n2. วางในเบราว์เซอร์อื่น (Chrome, Safari, Edge)\n3. กดบันทึกจากหน้านั้น`;
+        alert(linkText);
+        return;
+    }
+
     // Strategy 1: data: URL → direct download (always works)
     if (url.startsWith('data:')) {
         triggerDownload(url, filename);
@@ -790,7 +849,7 @@ window.forceDownload = async function (url, filename) {
 
     // Strategy 7: Navigate current page to the file (last resort)
     location.href = url;
-    showDownloadToast('กำลังเปิดไฟล์ — กดดาวน์โหลดหรือบันทึกจากหน้านี้', 5000);
+    showDownloadToast('กำลังเปิดไฟล์ — กดดาวน์โหลดหรือบันทึกจากหน้าน��้', 5000);
 };
 
 // Function to open image in zoomable lightbox popup
@@ -803,6 +862,52 @@ window.openImagePopup = function (imgSrc, downloadUrl) {
     resetLbZoom();
     lightbox.classList.add('active');
     document.body.style.overflow = 'hidden';
+    
+    // Add in-app browser warning to lightbox
+    if (isInAppBrowser()) {
+        const browserName = getBrowserName();
+        
+        setTimeout(() => {
+            const lightboxBody = document.getElementById('lightboxBody');
+            if (lightboxBody) {
+                const warning = document.createElement('div');
+                warning.style.cssText = `
+                    position: absolute;
+                    bottom: 80px;
+                    left: 50%;
+                    transform: translateX(-50%);
+                    background: rgba(255, 87, 34, 0.9);
+                    color: white;
+                    padding: 8px 15px;
+                    border-radius: 20px;
+                    font-size: 0.8rem;
+                    z-index: 100;
+                    text-align: center;
+                    max-width: 90%;
+                    backdrop-filter: blur(4px);
+                    animation: fadeInUp 0.5s ease;
+                `;
+                warning.innerHTML = `
+                    ⚠️ ${browserName} อาจบล็อกดาวน์โหลด<br>
+                    <a href="javascript:void(0)" onclick="window.open('${downloadUrl || imgSrc}', '_blank')" 
+                       style="color:white; text-decoration:underline; font-weight:bold;">
+                       คลิกเพื่อเปิดในแท็บใหม่
+                    </a>
+                `;
+                lightboxBody.appendChild(warning);
+                
+                // Add CSS animation
+                const style = document.createElement('style');
+                style.textContent = `
+                    @keyframes fadeInUp {
+                        from { opacity: 0; transform: translateX(-50%) translateY(20px); }
+                        to { opacity: 1; transform: translateX(-50%) translateY(0); }
+                    }
+                `;
+                document.head.appendChild(style);
+            }
+        }, 300);
+    }
 };
 
 function updateCountdowns() {
@@ -1033,6 +1138,169 @@ if (screenshotBtn) {
     });
 }
 
+// ===== In-App Browser Detection =====
+function isFacebookInAppBrowser() {
+    // Check for Facebook in-app browser user agent
+    const ua = navigator.userAgent || navigator.vendor || window.opera;
+    return ua.indexOf('FBAN') > -1 || 
+           ua.indexOf('FBAV') > -1 || 
+           ua.indexOf('Instagram') > -1;
+}
+
+function isLineInAppBrowser() {
+    // Check for LINE in-app browser user agent
+    const ua = navigator.userAgent || navigator.vendor || window.opera;
+    return ua.indexOf('Line') > -1 || ua.indexOf('LINE') > -1;
+}
+
+function isInAppBrowser() {
+    // Check for any in-app browser (Facebook, LINE, Instagram, etc.)
+    return isFacebookInAppBrowser() || isLineInAppBrowser();
+}
+
+function getBrowserName() {
+    if (isFacebookInAppBrowser()) {
+        if (navigator.userAgent.indexOf('Instagram') > -1) {
+            return 'Instagram';
+        }
+        return 'Facebook';
+    }
+    if (isLineInAppBrowser()) {
+        return 'LINE';
+    }
+    return null;
+}
+
+function showFacebookBrowserWarning() {
+    if (isInAppBrowser()) {
+        const browserName = getBrowserName();
+        
+        // Create warning banner
+        const warningBanner = document.createElement('div');
+        warningBanner.id = 'facebookBrowserWarning';
+        warningBanner.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            background: linear-gradient(135deg, #f97316, #dc2626);
+            color: white;
+            padding: 10px 15px;
+            font-size: 0.8rem;
+            text-align: center;
+            z-index: 10000;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+            animation: slideDown 0.3s ease;
+        `;
+        
+        const warningText = document.createElement('div');
+        let warningMessage = `⚠️ เตือน: คุณกำลังใช้เบราว์เซอร์ใน ${browserName} ซึ่งอาจทำให้ดาวน์โหลดรูปภาพไม่ได้!`;
+        
+        warningText.innerHTML = `
+            <strong>${warningMessage}</strong>
+            <a href="javascript:openInExternalBrowser()" style="color:white; text-decoration:underline; font-weight:bold; margin-left:10px;">คลิกที่นี่เพื่อเปิดในเบราว์เซอร์ภายนอก</a>
+            <button onclick="closeWarning()" style="background:rgba(255,255,255,0.2); border:none; color:white; margin-left:15px; padding:2px 8px; border-radius:4px; cursor:pointer;">✕</button>
+        `;
+        
+        warningBanner.appendChild(warningText);
+        document.body.appendChild(warningBanner);
+        
+        // Add CSS animation
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes slideDown {
+                from { transform: translateY(-100%); }
+                to { transform: translateY(0); }
+            }
+            #facebookBrowserWarning a:hover {
+                text-decoration: none;
+                opacity: 0.9;
+            }
+        `;
+        document.head.appendChild(style);
+    }
+}
+
+function openInExternalBrowser() {
+    const currentUrl = window.location.href;
+    const encodedUrl = encodeURIComponent(currentUrl);
+    // Try to open in external browser
+    window.open(currentUrl, '_system');
+    // Fallback instructions
+    alert('หากไม่เปิดอัตโนมัติ:\n1. คัดลอกลิงค์\n2. วางในเบราว์เซอร์อื่น (Chrome, Safari, Edge)\n\nลิงค์ปัจจุบัน: ' + currentUrl);
+}
+
+function closeWarning() {
+    const warning = document.getElementById('facebookBrowserWarning');
+    if (warning) warning.remove();
+}
+
+// Show warning on page load
+window.addEventListener('load', () => {
+    setTimeout(showFacebookBrowserWarning, 1000);
+    
+    // Initialize Facebook help modal
+    initFacebookHelpModal();
+});
+
+// Facebook Help Modal Functions
+function initFacebookHelpModal() {
+    const helpModal = document.getElementById('facebookHelpModal');
+    const closeBtn = document.getElementById('closeFacebookHelpBtn');
+    const openExternalBtn = document.getElementById('openExternalBtn');
+    const copyCurrentUrlBtn = document.getElementById('copyCurrentUrlBtn');
+    
+    if (!helpModal || !closeBtn || !openExternalBtn || !copyCurrentUrlBtn) return;
+    
+    // Close button
+    closeBtn.addEventListener('click', () => {
+        helpModal.classList.remove('active');
+    });
+    
+    // Open in external browser button
+    openExternalBtn.addEventListener('click', () => {
+        window.open(window.location.href, '_system');
+    });
+    
+    // Copy current URL button
+    copyCurrentUrlBtn.addEventListener('click', () => {
+        const currentUrl = window.location.href;
+        copyToClipboard(currentUrl);
+        helpModal.classList.remove('active');
+    });
+    
+    // Close modal when clicking outside
+    helpModal.addEventListener('click', (e) => {
+        if (e.target === helpModal) {
+            helpModal.classList.remove('active');
+        }
+    });
+    
+    // Add help button to warning banner
+    window.addEventListener('DOMContentLoaded', () => {
+        const warning = document.getElementById('facebookBrowserWarning');
+        if (warning) {
+            const helpBtn = document.createElement('button');
+            helpBtn.textContent = '❓ความช่วยเหลือ';
+            helpBtn.style.cssText = `
+                background: rgba(255, 255, 255, 0.2);
+                border: none;
+                color: white;
+                margin-left: 10px;
+                padding: 2px 10px;
+                border-radius: 4px;
+                cursor: pointer;
+                font-size: 0.75rem;
+            `;
+            helpBtn.addEventListener('click', () => {
+                helpModal.classList.add('active');
+            });
+            
+            warning.querySelector('div').appendChild(helpBtn);
+        }
+    });
+}
+
 // ===== Utilities =====
 function sanitize(str) {
     const div = document.createElement('div');
@@ -1161,6 +1429,45 @@ window.copyToClipboard = function (text, event) {
         sel.addRange(range);
     }
 
+    // Check for any in-app browser - clipboard API might be blocked
+    if (isInAppBrowser()) {
+        const browserName = getBrowserName();
+        
+        // Fallback method for in-app browsers
+        try {
+            // Try using execCommand as fallback
+            const textArea = document.createElement('textarea');
+            textArea.value = text;
+            textArea.style.position = 'fixed';
+            textArea.style.left = '-999999px';
+            textArea.style.top = '-999999px';
+            document.body.appendChild(textArea);
+            textArea.focus();
+            textArea.select();
+            const successful = document.execCommand('copy');
+            document.body.removeChild(textArea);
+            
+            if (successful) {
+                const toast = document.getElementById('copyToast');
+                if (toast) {
+                    toast.textContent = `คัดลอกบัญชีพร้อมเพย์: ${text}`;
+                    toast.classList.add('show');
+                    setTimeout(() => {
+                        toast.classList.remove('show');
+                    }, 2500);
+                }
+            } else {
+                // If execCommand also fails, show alert with instructions
+                alert(`คัดลอกไม่ได้ใน ${browserName}\n\nกรุณา:\n1. เลือกตัวเลข: ${text}\n2. กดคัดลอกด้วยตนเอง\n3. วางในแอปธนาคาร`);
+            }
+        } catch (err) {
+            console.error('Copy failed: ', err);
+            alert(`คัดลอกไม่ได้ใน ${browserName}\n\nกรุณาคัดลอกตัวเลขนี้ด้วยตนเอง:\n\n${text}`);
+        }
+        return;
+    }
+
+    // Regular clipboard API for other browsers
     navigator.clipboard.writeText(text).then(() => {
         const toast = document.getElementById('copyToast');
         if (toast) {
@@ -1172,11 +1479,51 @@ window.copyToClipboard = function (text, event) {
         }
     }).catch(err => {
         console.error('Could not copy text: ', err);
+        // Fallback to execCommand
+        try {
+            const textArea = document.createElement('textarea');
+            textArea.value = text;
+            textArea.style.position = 'fixed';
+            textArea.style.left = '-999999px';
+            textArea.style.top = '-999999px';
+            document.body.appendChild(textArea);
+            textArea.focus();
+            textArea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textArea);
+            
+            const toast = document.getElementById('copyToast');
+            if (toast) {
+                toast.textContent = `คัดลอกบัญชีพร้อมเพย์: ${text}`;
+                toast.classList.add('show');
+                setTimeout(() => {
+                    toast.classList.remove('show');
+                }, 2500);
+            }
+        } catch (e) {
+            alert(`คัดลอกไม่ได้\n\nกรุณาคัดลอกตัวเลขนี้ด้วยตนเอง:\n\n${text}`);
+        }
     });
 };
 
 // Function to download QR Code image
 window.downloadQRCode = async function (url, amount) {
+    // Check for any in-app browser
+    if (isInAppBrowser()) {
+        const browserName = getBrowserName();
+        const message = `⚠️ ${browserName} อาจบล็อกการดาวน์โหลด QR Code\n\n` +
+                       `กรุณา:\n` +
+                       `1. คลิกที่ QR Code เพื่อเปิดในแท็บใหม่\n` +
+                       `2. กดปิดแล้วเลือก "เปิดในเบราว์เซอร์"\n` +
+                       `3. บันทึกภาพจากเบราว์เซอร์นั้น\n\n` +
+                       `หรือคัดลอกลิงค์นี้: ${url}`;
+        alert(message);
+        
+        // Try to open in new tab
+        window.open(url, '_blank');
+        return;
+    }
+
     try {
         // Use CORS proxy to ensure we can fetch as blob for direct download
         const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(url)}`;

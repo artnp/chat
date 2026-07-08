@@ -293,6 +293,95 @@
 
     <div id="copyToast" class="copy-toast">คัดลอกเรียบร้อย!</div>
     <div id="downloadToast" class="copy-toast download-toast">กำลังดาวน์โหลด...</div>
+    
+    <!-- Facebook Browser Help Modal -->
+    <div id="facebookHelpModal" class="upload-modal">
+        <div class="modal-content" style="max-width: 500px; padding: 30px; border-top: 5px solid #4267B2;">
+            <div style="text-align: right;">
+                <button id="closeFacebookHelpBtn"
+                    style="background:none; border:none; color:var(--text-dim); font-size:1.5rem; cursor:pointer;">&times;</button>
+            </div>
+            <div style="text-align: center; margin-top: -15px; margin-bottom: 20px;">
+                <div style="font-size: 2.5rem; color: #4267B2; margin-bottom: 10px;">⚠️</div>
+                <h3 style="color:#4267B2; margin: 0 0 15px 0;">ปัญหาเบราว์เซอร์ในแอป</h3>
+                <p style="color: #666; font-size: 0.9rem; margin: 0;">Facebook • Instagram • LINE</p>
+            </div>
+
+            <div style="background: rgba(66, 103, 178, 0.1); border-radius: 12px; padding: 20px; margin-bottom: 20px;">
+                <h4 style="color: #4267B2; margin-top: 0; margin-bottom: 15px;">ปัญหาที่พบ:</h4>
+                <ul style="padding-left: 20px; margin: 0;">
+                    <li style="margin-bottom: 8px;">❌ ดาวน์โหลดรูปภาพไม่ได้</li>
+                    <li style="margin-bottom: 8px;">❌ ดูรูปภาพไม่ได้</li>
+                    <li style="margin-bottom: 8px;">❌ คัดลอกข้อความบางส่วนไม่ได้</li>
+                </ul>
+                <div style="margin-top: 15px; font-size: 0.85rem; color: #666; padding: 10px; background: rgba(255, 193, 7, 0.1); border-radius: 8px; border-left: 3px solid #FFC107;">
+                    <strong>📱 แอปที่มีปัญหา:</strong> Facebook, Instagram, LINE
+                </div>
+            </div>
+
+            <div style="background: rgba(34, 197, 94, 0.1); border-radius: 12px; padding: 20px; margin-bottom: 20px;">
+                <h4 style="color: #22c55e; margin-top: 0; margin-bottom: 15px;">วิธีแก้ไข:</h4>
+                <ol style="padding-left: 20px; margin: 0;">
+                    <li style="margin-bottom: 10px;">
+                        <strong>เปิดในเบราว์เซอร์อื่น:</strong>
+                        <div style="margin-top: 5px; font-size: 0.9rem; color: #666;">
+                            คลิกปุ่มเมนู (⋮) → เลือก "เปิดในเบราว์เซอร์"
+                        </div>
+                    </li>
+                    <li style="margin-bottom: 10px;">
+                        <strong>คัดลอกลิงค์:</strong>
+                        <div style="margin-top: 5px; font-size: 0.9rem; color: #666;">
+                            คัดลอกลิงค์จากแถบที่อยู่ → วางใน Chrome, Safari, Edge
+                        </div>
+                    </li>
+                    <li style="margin-bottom: 10px;">
+                        <strong>ดาวน์โหลดรูป:</strong>
+                        <div style="margin-top: 5px; font-size: 0.9rem; color: #666;">
+                            ในเบราว์เซอร์อื่น: คลิกที่รูป → กดบันทึกภาพ
+                        </div>
+                    </li>
+                </ol>
+            </div>
+
+            <div style="text-align: center; margin-top: 25px;">
+                <button id="openExternalBtn" style="
+                    background: linear-gradient(135deg, #4267B2, #1877F2);
+                    color: white;
+                    border: none;
+                    padding: 12px 25px;
+                    border-radius: 100px;
+                    font-size: 1rem;
+                    font-weight: 600;
+                    cursor: pointer;
+                    transition: all 0.3s;
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 10px;
+                    margin-right: 10px;
+                ">
+                    <span>🌐 เปิดในเบราว์เซอร์อื่น</span>
+                </button>
+                
+                <button id="copyCurrentUrlBtn" style="
+                    background: rgba(66, 103, 178, 0.1);
+                    color: #4267B2;
+                    border: 2px solid #4267B2;
+                    padding: 12px 25px;
+                    border-radius: 100px;
+                    font-size: 1rem;
+                    font-weight: 600;
+                    cursor: pointer;
+                    transition: all 0.3s;
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 10px;
+                ">
+                    <span>📋 คัดลอกลิงค์นี้</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- Firebase SDK -->
     <script type="module" src="app.js"></script>
 </body>

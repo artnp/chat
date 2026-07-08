@@ -651,7 +651,7 @@ body {
     text-align: right;
 }
 
-/* Upload Modal (used by billingModal, contactModal) */
+/* Upload Modal (used by billingModal, contactModal, facebookHelpModal) */
 .upload-modal {
     position: fixed;
     top: 0;
@@ -1687,6 +1687,47 @@ body {
     .file-link:active {
         background: rgba(130, 87, 229, 0.25);
     }
+}
+
+/* Facebook Browser Fallback Styles */
+.facebook-image-fallback {
+    padding: 15px;
+    background: rgba(255, 87, 34, 0.1);
+    border-radius: 8px;
+    border: 2px dashed #ff5722;
+    margin: 10px 0;
+    text-align: center;
+    animation: fadeIn 0.5s ease;
+}
+
+.facebook-image-fallback a {
+    color: #2196f3;
+    text-decoration: underline;
+    font-weight: bold;
+    display: inline-block;
+    margin: 10px 0;
+    padding: 8px 15px;
+    background: rgba(33, 150, 243, 0.1);
+    border-radius: 4px;
+    transition: all 0.2s;
+}
+
+.facebook-image-fallback a:hover {
+    background: rgba(33, 150, 243, 0.2);
+    text-decoration: none;
+}
+
+.facebook-image-fallback code {
+    background: #f5f5f5;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    word-break: break-all;
+    display: inline-block;
+    margin-top: 8px;
+    font-family: monospace;
+    color: #333;
+    border: 1px solid #ddd;
 }
 
 /* Improve message-media-container touch feedback */
