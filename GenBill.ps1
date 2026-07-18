@@ -21,7 +21,7 @@ $url_customer = "$domain/?room=$roomId&bill=$amount&t=$t&k=eworker"
 # ลิงก์สำหรับคุณ (หน้าแชทปกติ)
 $url_admin = "$domain/?room=$roomId"
 
-$msg = "✅ในนี้ให้คิดแพงมาก!! 🤑เพื่อผลประโยชน์ลูกค้าที่น่ารัก ไปชำระช่องทางนี้กัน: $url_customer"
+$msg = "✅มาจ่ายค่าแรงกัน!! 🤑ยอด/$amount.- ใช้ช่องทางนี้ท่าน: $url_customer"
 
 Set-Clipboard -Value $msg
 
