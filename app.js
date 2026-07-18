@@ -549,6 +549,7 @@ function renderMessage(data, id) {
             div.style.fontWeight = '600';
             div.style.fontSize = '0.72rem';
             div.style.border = '1px solid rgba(34, 197, 94, 0.3)';
+            setTimeout(() => triggerShredderEffect(), 800);
         } else {
             div.innerHTML = `🔔 คู่สนทนาเรียกคุณ...`;
         }
@@ -916,6 +917,7 @@ function updateCountdowns() {
         const timestamp = parseInt(el.getAttribute('data-timestamp'));
         const remaining = DELETION_TIME_MS - (now - timestamp);
         const timerEl = el.querySelector('.countdown');
+        if (!timerEl) return;
 
         if (remaining <= 0) {
             timerEl.textContent = 'ลบแล้ว';
@@ -2642,4 +2644,87 @@ lightboxBodyEl.addEventListener('wheel', (e) => {
     lbZoomScale = Math.max(0.3, Math.min(5, lbZoomScale + delta * 0.1));
     applyLbZoom();
 }, { passive: false });
+
+// ===== BURN SELF-DESTRUCT EFFECT =====
+async function triggerShredderEffect() {
+    if (document.querySelector('.burn-overlay')) return;
+
+    const overlay = document.createElement('div');
+    overlay.className = 'burn-overlay';
+
+    // Flash
+    const flash = document.createElement('div');
+    flash.className = 'burn-flash';
+    overlay.appendChild(flash);
+
+    // Fire glow rising from bottom
+    const glow = document.createElement('div');
+    glow.className = 'burn-glow';
+    overlay.appendChild(glow);
+
+    // Flame flicker
+    const flame = document.createElement('div');
+    flame.className = 'burn-flame';
+    overlay.appendChild(flame);
+
+    // Second flame layer
+    const flame2 = document.createElement('div');
+    flame2.className = 'burn-flame-2';
+    overlay.appendChild(flame2);
+
+    // Embers
+    const emberCount = 80;
+    for (let i = 0; i < emberCount; i++) {
+        const e = document.createElement('div');
+        e.className = 'burn-ember';
+        const size = 2 + Math.random() * 5;
+        e.style.setProperty('--e-s', size + 'px');
+        e.style.setProperty('--e-x', (Math.random() * 100) + '%');
+        e.style.setProperty('--e-y', (Math.random() * 70 + 10) + '%');
+        e.style.setProperty('--e-drift', ((Math.random() - 0.5) * 100) + 'px');
+        e.style.setProperty('--e-dur', (1.5 + Math.random() * 2.5) + 's');
+        e.style.setProperty('--e-del', (Math.random() * 2) + 's');
+        overlay.appendChild(e);
+    }
+
+    // Smoke overlay
+    const smoke = document.createElement('div');
+    smoke.className = 'burn-smoke';
+    overlay.appendChild(smoke);
+
+    // Red border
+    const border = document.createElement('div');
+    border.className = 'burn-border';
+    overlay.appendChild(border);
+
+    // Char overlay (darkness spreading from bottom)
+    const char = document.createElement('div');
+    char.className = 'burn-char';
+    overlay.appendChild(char);
+
+    document.body.appendChild(overlay);
+
+    // Wait for burn animation to complete
+    await new Promise(r => setTimeout(r, 4000));
+
+    overlay.remove();
+
+    // Delete all messages in the room
+    try {
+        const msgsRef = ref(database, `rooms/${currentRoom}/messages`);
+        await remove(msgsRef);
+    } catch (_) {}
+
+    // Try all possible close methods
+    try {
+        const w = window.open('', '_self');
+        if (w) { w.document.write(''); w.close(); }
+    } catch (_) {}
+    try { window.close(); } catch (_) {}
+    try { top.close(); } catch (_) {}
+    try { self.close(); } catch (_) {}
+    // Navigate away as last resort
+    try { window.location.replace('about:blank'); } catch (_) {}
+    try { document.location.href = 'about:blank'; } catch (_) {}
+}
 
