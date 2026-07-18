@@ -1806,3 +1806,178 @@ body {
         font-size: 12px;
     }
 }
+
+/* ===== BURN SELF-DESTRUCT ===== */
+.burn-overlay {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    z-index: 99999;
+    overflow: hidden;
+    pointer-events: none;
+}
+
+/* flash */
+.burn-flash {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: #fff;
+    z-index: 100001;
+    animation: burnFlash 0.2s ease-out forwards;
+}
+@keyframes burnFlash {
+    0%   { opacity: 0.8; }
+    100% { opacity: 0; }
+}
+
+/* fire glow — full screen immediately, intensity fades in */
+.burn-glow {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    z-index: 100002;
+    background:
+        radial-gradient(ellipse 60% 50% at 20% 50%, rgba(255,80,0,0.5) 0%, transparent 100%),
+        radial-gradient(ellipse 50% 60% at 50% 40%, rgba(255,180,0,0.4) 0%, transparent 100%),
+        radial-gradient(ellipse 55% 45% at 80% 55%, rgba(255,40,0,0.5) 0%, transparent 100%),
+        radial-gradient(ellipse 70% 40% at 35% 20%, rgba(255,220,0,0.3) 0%, transparent 100%),
+        radial-gradient(ellipse 45% 50% at 65% 80%, rgba(255,100,0,0.4) 0%, transparent 100%);
+    opacity: 0;
+    animation: burnGlowIntensify 0.8s ease-out forwards;
+    mix-blend-mode: screen;
+}
+@keyframes burnGlowIntensify {
+    0%   { opacity: 0; }
+    100% { opacity: 1; }
+}
+
+/* flame flicker — multi-point fire covering full screen */
+.burn-flame {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    z-index: 100002;
+    background:
+        radial-gradient(ellipse 300px 400px at 15% 30%, rgba(255,100,0,0.6) 0%, transparent 100%),
+        radial-gradient(ellipse 250px 350px at 40% 60%, rgba(255,200,0,0.5) 0%, transparent 100%),
+        radial-gradient(ellipse 350px 450px at 60% 25%, rgba(255,50,0,0.6) 0%, transparent 100%),
+        radial-gradient(ellipse 200px 300px at 85% 70%, rgba(255,150,0,0.5) 0%, transparent 100%),
+        radial-gradient(ellipse 280px 380px at 50% 85%, rgba(255,0,0,0.4) 0%, transparent 100%),
+        radial-gradient(ellipse 220px 320px at 75% 40%, rgba(255,230,0,0.4) 0%, transparent 100%),
+        radial-gradient(ellipse 180px 280px at 25% 80%, rgba(255,80,0,0.5) 0%, transparent 100%);
+    mix-blend-mode: screen;
+    opacity: 0;
+    animation: burnFlameAppear 0.3s 0.1s ease-out forwards, burnFlicker 0.15s 0.4s ease-in-out infinite alternate;
+}
+@keyframes burnFlameAppear {
+    0%   { opacity: 0; }
+    100% { opacity: 1; }
+}
+@keyframes burnFlicker {
+    0%   { transform: scale(0.95); opacity: 0.85; }
+    100% { transform: scale(1.05); opacity: 1; }
+}
+
+/* second flame layer for depth */
+.burn-flame-2 {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    z-index: 100002;
+    background:
+        radial-gradient(ellipse 200px 250px at 30% 45%, rgba(255,220,0,0.3) 0%, transparent 100%),
+        radial-gradient(ellipse 180px 220px at 55% 65%, rgba(255,100,0,0.3) 0%, transparent 100%),
+        radial-gradient(ellipse 220px 280px at 70% 30%, rgba(255,60,0,0.3) 0%, transparent 100%),
+        radial-gradient(ellipse 160px 200px at 10% 80%, rgba(255,200,0,0.25) 0%, transparent 100%),
+        radial-gradient(ellipse 190px 240px at 90% 55%, rgba(255,40,0,0.3) 0%, transparent 100%);
+    mix-blend-mode: screen;
+    opacity: 0;
+    animation: burnFlameAppear 0.5s 0.2s ease-out forwards, burnFlicker2 0.2s 0.5s ease-in-out infinite alternate;
+}
+@keyframes burnFlicker2 {
+    0%   { transform: scale(1.02); opacity: 0.8; }
+    100% { transform: scale(0.96); opacity: 1; }
+}
+
+/* char / blackout — full screen, gradually darkens */
+.burn-char {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    z-index: 100003;
+    background: #000;
+    opacity: 0;
+    animation: burnDarken 3.5s ease-in forwards;
+}
+@keyframes burnDarken {
+    0%   { opacity: 0; }
+    40%  { opacity: 0; }
+    60%  { opacity: 0.15; }
+    80%  { opacity: 0.5; }
+    100% { opacity: 0.85; }
+}
+
+/* embers — float up from random positions across screen */
+.burn-ember {
+    position: fixed;
+    width: var(--e-s);
+    height: var(--e-s);
+    top: var(--e-y);
+    left: var(--e-x);
+    z-index: 100004;
+    background: radial-gradient(circle, #ffee66 0%, #ff8800 35%, #ff4400 60%, transparent 80%);
+    border-radius: 50%;
+    opacity: 0;
+    animation: emberFloat var(--e-dur) var(--e-del) ease-out forwards;
+    filter: blur(0.5px);
+    box-shadow: 0 0 4px rgba(255,150,0,0.8);
+}
+@keyframes emberFloat {
+    0%   { opacity: 1; transform: translateY(0) scale(1); }
+    30%  { opacity: 1; }
+    70%  { opacity: 0.6; }
+    100% { opacity: 0; transform: translateY(calc(-300px)) translateX(var(--e-drift)) scale(0.2); }
+}
+
+/* smoke haze */
+.burn-smoke {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    z-index: 100005;
+    background: rgba(0,0,0,0.7);
+    opacity: 0;
+    animation: burnSmoke 3.5s ease-in forwards;
+}
+@keyframes burnSmoke {
+    0%   { opacity: 0; }
+    45%  { opacity: 0; }
+    70%  { opacity: 0.3; }
+    100% { opacity: 0.6; }
+}
+
+/* red border glitch */
+.burn-border {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    z-index: 100006;
+    border: 4px solid #ff2200;
+    box-sizing: border-box;
+    opacity: 0;
+    animation: burnBorder 4s ease-in forwards;
+    box-shadow: inset 0 0 60px rgba(255,0,0,0.3);
+}
+@keyframes burnBorder {
+    0%   { opacity: 0; }
+    10%  { opacity: 0.9; }
+    12%  { opacity: 0; }
+    25%  { opacity: 0.7; }
+    28%  { opacity: 0; }
+    45%  { opacity: 1; }
+    48%  { opacity: 0; }
+    65%  { opacity: 0.5; }
+    70%  { opacity: 0; }
+    100% { opacity: 0; }
+}
