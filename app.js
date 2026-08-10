@@ -523,6 +523,78 @@ function initChatListeners() {
     });
 }
 
+// ---- Draw SVG Connecting Lines on Chat Problem Cards ----
+window.drawProblemCardArrows = function (cardEl) {
+    if (!cardEl) return;
+    const bodyEl = cardEl.querySelector('.problem-card-body');
+    const svg = cardEl.querySelector('.problem-card-svg');
+    const img = cardEl.querySelector('.problem-img');
+    if (!bodyEl || !svg || !img) return;
+
+    svg.innerHTML = '';
+    const bodyRect = bodyEl.getBoundingClientRect();
+    const imgRect = img.getBoundingClientRect();
+
+    if (bodyRect.width === 0 || imgRect.width === 0) return;
+
+    let annData = [];
+    try {
+        const raw = cardEl.getAttribute('data-annotations');
+        if (raw) annData = JSON.parse(raw);
+    } catch (_) {}
+
+    const items = cardEl.querySelectorAll('.prob-ann-item');
+    if (items.length === 0) return;
+
+    items.forEach((itemEl, idx) => {
+        const num = parseInt(itemEl.dataset.num) || (idx + 1);
+        const ann = Array.isArray(annData) ? annData.find(a => a.num === num) : null;
+
+        let markerX, markerY;
+        if (ann && typeof ann.rx === 'number' && ann.rx > 0) {
+            markerX = (imgRect.left - bodyRect.left) + (ann.rx + ann.rw / 2) * imgRect.width;
+            markerY = (imgRect.top - bodyRect.top) + (ann.ry + ann.rh / 2) * imgRect.height;
+        } else {
+            markerX = (imgRect.left - bodyRect.left) + imgRect.width * 0.82;
+            markerY = (imgRect.top - bodyRect.top) + imgRect.height * ((idx + 0.5) / items.length);
+        }
+
+        const itemRect = itemEl.getBoundingClientRect();
+        const itemX = itemRect.left - bodyRect.left;
+        const itemY = itemRect.top - bodyRect.top + itemRect.height / 2;
+
+        const color = '#ef4444';
+        const strokeW = 2;
+
+        const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        line.setAttribute('x1', markerX);
+        line.setAttribute('y1', markerY);
+        line.setAttribute('x2', itemX);
+        line.setAttribute('y2', itemY);
+        line.setAttribute('stroke', color);
+        line.setAttribute('stroke-width', strokeW);
+        line.setAttribute('stroke-dasharray', '5,4');
+        svg.appendChild(line);
+
+        const angle = Math.atan2(itemY - markerY, itemX - markerX);
+        const aLen = 8;
+        const aAngle = 0.45;
+        const ax1 = itemX - aLen * Math.cos(angle - aAngle);
+        const ay1 = itemY - aLen * Math.sin(angle - aAngle);
+        const ax2 = itemX - aLen * Math.cos(angle + aAngle);
+        const ay2 = itemY - aLen * Math.sin(angle + aAngle);
+
+        const poly = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+        poly.setAttribute('points', `${itemX},${itemY} ${ax1},${ay1} ${ax2},${ay2}`);
+        poly.setAttribute('fill', color);
+        svg.appendChild(poly);
+    });
+};
+
+window.addEventListener('resize', () => {
+    document.querySelectorAll('.problem-card').forEach(card => window.drawProblemCardArrows(card));
+});
+
 function renderMessage(data, id) {
     if (document.querySelector(`[data-id="${id}"]`)) return;
 
@@ -558,7 +630,9 @@ function renderMessage(data, id) {
         return;
     }
 
-    div.className = `message-bubble ${isMe ? 'me' : 'other'}`;
+    const isMarkedImage = data.file && data.file.name && data.file.name.startsWith('marked_');
+    div.className = isMarkedImage ? 'message-bubble problem-center' : `message-bubble ${isMe ? 'me' : 'other'}`;
+
     div.setAttribute('data-id', id);
     div.setAttribute('data-timestamp', data.timestamp);
 
@@ -575,19 +649,48 @@ function renderMessage(data, id) {
             const isMarked = data.file.name && data.file.name.startsWith('marked_');
 
             if (isMarked) {
-                // Marked image: yellow frame, tag, click-to-zoom
+                let annPoints = [];
+                if (data.file && data.file.annotations && Array.isArray(data.file.annotations)) {
+                    annPoints = data.file.annotations;
+                } else if (data.text) {
+                    data.text.split('\n').forEach(line => {
+                        const m = line.match(/^จุดที่\s*(\d+):\s*(.+)$/);
+                        if (m) annPoints.push({ num: parseInt(m[1]), text: m[2].trim() });
+                    });
+                }
+
+                const annItemsHTML = annPoints.map(p => `
+                    <div class="prob-ann-item" data-num="${p.num}">
+                        <div class="prob-ann-num">${p.num}</div>
+                        <div class="prob-ann-text">${sanitize(p.text || '')}</div>
+                    </div>
+                `).join('');
+
+                const annJSONEscaped = JSON.stringify(annPoints).replace(/"/g, '&quot;');
+                const origImgUrl = (data.file.originalImage || fileUrl).replace(/'/g, "\\'");
+                const clickHandler = `window.openAnnotateModal('${origImgUrl}', JSON.parse(this.closest('.problem-card').getAttribute('data-annotations') || '[]'))`;
+
                 contentHTML += `
-                    <div class="marked-image-wrapper">
-                        <span class="marked-tag">📌 โจทย์ปัญหา</span>
-                        <div class="message-media-container marked-media" onclick="window.openImagePopup('${fileUrl.replace(/'/g, "\\'")}')">
-                            <button class="thumb-download-btn" onclick="event.stopPropagation(); window.forceDownload('${fileUrl.replace(/'/g, "\\'")}', '${data.file.name}')" title="ดาวน์โหลด">
-                                <i class="fa-solid fa-download"></i>
-                            </button>
-                            <img src="${fileUrl}" class="message-img" alt="Marked Image">
+                    <div class="problem-card" data-annotations="${annJSONEscaped}">
+                        <div class="problem-card-header">
+                            <span class="problem-tag">📌 โจทย์ปัญหา</span>
+                        </div>
+                        <div class="problem-card-body">
+                            <svg class="problem-card-svg"></svg>
+                            <div class="problem-image-col" onclick="${clickHandler}">
+                                <button class="thumb-download-btn" onclick="event.stopPropagation(); window.forceDownload('${fileUrl.replace(/'/g, "\\'")}','${data.file.name}')" title="ดาวน์โหลด"><i class="fa-solid fa-download"></i></button>
+                                <img src="${fileUrl}" class="message-img problem-img" alt="Marked Image" onload="setTimeout(() => window.drawProblemCardArrows(this.closest('.problem-card')), 60)">
+                            </div>
+                            ${annItemsHTML ? `<div class="problem-ann-col">${annItemsHTML}</div>` : ''}
                         </div>
                     </div>
                 `;
+                data._textConsumed = true;
                 // No mark button for marked images
+
+
+
+
             } else {
                 // Normal image: click to open lightbox
                 contentHTML += `
@@ -620,8 +723,9 @@ function renderMessage(data, id) {
         }
     }
 
-    if (data.text) {
+    if (data.text && !data._textConsumed) {
         // Strict match: message must be ONLY "xxxบาท" or "xxx บาท" from start to end
+
         const strictPriceMatch = data.text.trim().match(/^(\d+(?:\.\d{1,2})?)\s*บาท$/);
 
         if (strictPriceMatch) {
@@ -2005,20 +2109,25 @@ voiceListenerBar?.addEventListener('click', () => {
     }
 });
 
-// ===== Annotation Modal System =====
+
+
 
 const annotateModal = document.getElementById('annotateModal');
 const annotateCanvasContainer = document.getElementById('annotateCanvasContainer');
 const annotateCloseBtn = document.getElementById('annotateCloseBtn');
 const annotateAddBoxBtn = document.getElementById('annotateAddBoxBtn');
 const annotateSendBtn = document.getElementById('annotateSendBtn');
+const annCardsList = document.getElementById('annCardsList');
+const annEmptyState = document.getElementById('annEmptyState');
+const annCountBadge = document.getElementById('annCountBadge');
+const annArrowSvg = document.getElementById('annArrowSvg');
 
-// Floating zoom controls
+// Floating zoom controls (now in left header)
 const annotateZoomInBtn = document.getElementById('annotateZoomInBtn');
 const annotateZoomOutBtn = document.getElementById('annotateZoomOutBtn');
 const annotateZoomResetBtn = document.getElementById('annotateZoomResetBtn');
 
-let annotateImageSrc = null; // current image being annotated
+let annotateImageSrc = null;
 let zoomScale = 1;
 let panX = 0;
 let panY = 0;
@@ -2029,197 +2138,224 @@ let activePointers = [];
 let initialDist = 0;
 let initialScale = 1;
 
-// Function to apply zoom and pan transforms to the viewport
+// Ann box registry: { id -> { boxEl, cardEl, number } }
+let annRegistry = {};
+let annCounter = 0;
+let activeAnnId = null;
+let arrowAnimFrame = null;
+
+// ---- Zoom & Pan ----
 function applyZoomPan() {
     const viewport = annotateCanvasContainer.querySelector('.canvas-viewport');
     if (viewport) {
         viewport.style.transform = `translate(${panX}px, ${panY}px) scale(${zoomScale})`;
         viewport.style.transformOrigin = 'center center';
     }
+    scheduleArrowDraw();
 }
 
-// Function to dynamically adjust padding to prevent tooltips from getting cut off
-function updateContainerPadding() {
-    const viewport = annotateCanvasContainer.querySelector('.canvas-viewport');
-    if (!viewport) return;
+// ---- Arrow Drawing ----
+function scheduleArrowDraw() {
+    if (arrowAnimFrame) cancelAnimationFrame(arrowAnimFrame);
+    arrowAnimFrame = requestAnimationFrame(drawArrows);
+}
 
-    const boxes = viewport.querySelectorAll('.ann-box');
-    let maxLeft = 0, maxRight = 0, maxTop = 0, maxBottom = 0;
-    const vWidth = viewport.offsetWidth;
-    const vHeight = viewport.offsetHeight;
+function drawArrows() {
+    if (!annArrowSvg) return;
+    annArrowSvg.innerHTML = '';
 
-    boxes.forEach(box => {
-        const label = box.querySelector('.ann-label');
-        if (!label) return;
+    const modalRect = annotateModal.getBoundingClientRect();
 
-        // Measure label dimensions
-        const labelWidth = label.offsetWidth || 120;
-        const labelHeight = label.offsetHeight || 40;
+    Object.values(annRegistry).forEach(({ boxEl, cardEl }) => {
+        if (!boxEl.isConnected || !cardEl.isConnected) return;
 
-        const boxLeft = box.offsetLeft;
-        const boxTop = box.offsetTop;
-        const boxWidth = box.offsetWidth;
-        const boxHeight = box.offsetHeight;
+        const boxRect = boxEl.getBoundingClientRect();
+        const cardRect = cardEl.getBoundingClientRect();
 
-        // Label is centered horizontally below the box:
-        const labelLeft = boxLeft + (boxWidth / 2) - (labelWidth / 2);
-        const labelRight = labelLeft + labelWidth;
-        const labelTop = boxTop + boxHeight + 10;
-        const labelBottom = labelTop + labelHeight;
+        if (boxRect.width === 0 || cardRect.width === 0) return;
 
-        // Check overflows relative to viewport boundaries
-        if (labelLeft < 0) maxLeft = Math.max(maxLeft, -labelLeft);
-        if (labelRight > vWidth) maxRight = Math.max(maxRight, labelRight - vWidth);
-        if (labelTop < 0) maxTop = Math.max(maxTop, -labelTop);
-        if (labelBottom > vHeight) maxBottom = Math.max(maxBottom, labelBottom - vHeight);
+        // Start: left edge of card (vertically centered)
+        const x1 = cardRect.left - modalRect.left;
+        const y1 = cardRect.top - modalRect.top + cardRect.height / 2;
 
-        // Also check the box itself
-        if (boxLeft < 0) maxLeft = Math.max(maxLeft, -boxLeft);
-        if (boxLeft + boxWidth > vWidth) maxRight = Math.max(maxRight, (boxLeft + boxWidth) - vWidth);
-        if (boxTop < 0) maxTop = Math.max(maxTop, -boxTop);
-        if (boxTop + boxHeight > vHeight) maxBottom = Math.max(maxBottom, (boxTop + boxHeight) - vHeight);
+        // End: right edge of marker box (vertically centered)
+        const x2 = boxRect.right - modalRect.left;
+        const y2 = boxRect.top - modalRect.top + boxRect.height / 2;
+
+        const isActive = activeAnnId === boxEl.dataset.annId;
+        const color = isActive ? '#ef4444' : 'rgba(239,68,68,0.45)';
+        const strokeW = isActive ? 2.5 : 1.8;
+
+        // Draw line
+        const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        line.setAttribute('x1', x1);
+        line.setAttribute('y1', y1);
+        line.setAttribute('x2', x2);
+        line.setAttribute('y2', y2);
+        line.setAttribute('stroke', color);
+        line.setAttribute('stroke-width', strokeW);
+        line.setAttribute('stroke-dasharray', isActive ? '0' : '5,4');
+        annArrowSvg.appendChild(line);
+
+        // Arrowhead at marker end
+        const angle = Math.atan2(y2 - y1, x2 - x1);
+        const aLen = 9;
+        const aAngle = 0.45;
+        const ax1 = x2 - aLen * Math.cos(angle - aAngle);
+        const ay1 = y2 - aLen * Math.sin(angle - aAngle);
+        const ax2 = x2 - aLen * Math.cos(angle + aAngle);
+        const ay2 = y2 - aLen * Math.sin(angle + aAngle);
+
+        const poly = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+        poly.setAttribute('points', `${x2},${y2} ${ax1},${ay1} ${ax2},${ay2}`);
+        poly.setAttribute('fill', color);
+        annArrowSvg.appendChild(poly);
+    });
+}
+
+// ---- Active / Dimmed State ----
+function setActiveAnn(id) {
+    if (activeAnnId === id) return; // Skip if already active — 100% lag-free!
+    activeAnnId = id;
+    Object.entries(annRegistry).forEach(([rid, { boxEl, cardEl }]) => {
+        const isThis = rid === id;
+        boxEl.classList.toggle('active', isThis);
+        boxEl.classList.toggle('dimmed', id !== null && !isThis);
+        cardEl.classList.toggle('active', isThis);
+    });
+    scheduleArrowDraw();
+}
+
+function clearActiveAnn() {
+    if (activeAnnId === null) return;
+    activeAnnId = null;
+    Object.values(annRegistry).forEach(({ boxEl, cardEl }) => {
+        boxEl.classList.remove('active', 'dimmed');
+        cardEl.classList.remove('active');
+    });
+    scheduleArrowDraw();
+}
+
+// ---- Count & Empty State ----
+function updateAnnCount() {
+    const count = Object.keys(annRegistry).length;
+    if (annCountBadge) annCountBadge.textContent = count;
+    if (annEmptyState) annEmptyState.style.display = count === 0 ? 'flex' : 'none';
+    if (annotateSendBtn) {
+        if (count > 0) {
+            annotateSendBtn.classList.add('ready');
+        } else {
+            annotateSendBtn.classList.remove('ready');
+        }
+    }
+}
+
+// ---- Create Card in right panel ----
+function createAnnCard(id, number, initialText = '') {
+    const card = document.createElement('div');
+    card.className = 'ann-card';
+    card.dataset.annId = id;
+
+    const header = document.createElement('div');
+    header.className = 'ann-card-header';
+
+    const numEl = document.createElement('div');
+    numEl.className = 'ann-card-num';
+    numEl.textContent = number;
+
+    const label = document.createElement('div');
+    label.className = 'ann-card-label';
+    label.textContent = `จุดที่ ${number}`;
+
+    const delBtn = document.createElement('button');
+    delBtn.className = 'ann-card-del';
+    delBtn.innerHTML = '<i class="fa-solid fa-times"></i>';
+    delBtn.title = 'ลบจุดนี้';
+    delBtn.onpointerdown = (e) => {
+        e.stopPropagation();
+        removeAnn(id);
+    };
+
+    header.appendChild(numEl);
+    header.appendChild(label);
+    header.appendChild(delBtn);
+
+    const textarea = document.createElement('textarea');
+    textarea.className = 'ann-card-textarea';
+    textarea.placeholder = `พิมพ์โจทย์จุดที่ ${number} ที่นี่...`;
+    textarea.rows = 2;
+    textarea.value = initialText || '';
+
+    // Stop event propagation to prevent parent drag/pan/redraw handlers from lagging typing
+    ['pointerdown', 'mousedown', 'touchstart', 'click', 'keydown', 'keyup'].forEach(evtType => {
+        textarea.addEventListener(evtType, e => e.stopPropagation());
     });
 
-    // Apply padding + safety margin (20px) to annotateCanvasContainer
-    const pLeft = maxLeft ? maxLeft + 20 : 20;
-    const pRight = maxRight ? maxRight + 20 : 20;
-    const pTop = maxTop ? maxTop + 20 : 20;
-    const pBottom = maxBottom ? maxBottom + 20 : 20;
+    textarea.onfocus = () => setActiveAnn(id);
+    textarea.onblur = () => scheduleArrowDraw();
 
-    annotateCanvasContainer.style.padding = `${pTop}px ${pRight}px ${pBottom}px ${pLeft}px`;
+    card.appendChild(header);
+    card.appendChild(textarea);
+
+    card.addEventListener('pointerdown', (e) => {
+        if (e.target === delBtn || e.target.closest('.ann-card-del') || e.target === textarea) return;
+        setActiveAnn(id);
+    });
+
+    if (annCardsList) {
+        annCardsList.appendChild(card);
+    }
+
+    return card;
 }
 
-// Open modal with image
-window.openAnnotateModal = function (imgSrc) {
-    annotateImageSrc = imgSrc;
-    annotateCanvasContainer.innerHTML = '';
-    annotateSendBtn.classList.remove('ready');
-    annotateAddBoxBtn.classList.add('pulse');
 
-    // Reset zoom and pan
-    zoomScale = 1;
-    panX = 0;
-    panY = 0;
-    annotateCanvasContainer.style.padding = '20px'; // default padding
+// ---- Remove annotation (box + card) ----
+function removeAnn(id) {
+    const entry = annRegistry[id];
+    if (!entry) return;
+    entry.boxEl.remove();
+    entry.cardEl.remove();
+    delete annRegistry[id];
+    if (activeAnnId === id) clearActiveAnn();
+    updateAnnCount();
+    scheduleArrowDraw();
+}
 
-    // Load image onto a canvas wrapped in a viewport
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    
-    const handleImageLoad = (loadedImg) => {
-        const viewport = document.createElement('div');
-        viewport.className = 'canvas-viewport';
-
-        const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
-        canvas.width = loadedImg.naturalWidth;
-        canvas.height = loadedImg.naturalHeight;
-        ctx.drawImage(loadedImg, 0, 0);
-
-        viewport.appendChild(canvas);
-        annotateCanvasContainer.appendChild(viewport);
-
-        applyZoomPan();
-        updateContainerPadding();
-
-        // Show modal
-        annotateModal.classList.add('active');
-        document.body.style.overflow = 'hidden';
-
-        // Auto-add a centered annotation box
-        setTimeout(() => {
-            annotateAddBoxBtn.classList.remove('pulse');
-            annotateSendBtn.classList.add('ready');
-            const vp = annotateCanvasContainer.querySelector('.canvas-viewport');
-            if (!vp) return;
-            const cw = vp.offsetWidth, ch = vp.offsetHeight;
-            const rect = vp.getBoundingClientRect();
-            let y = (window.innerHeight / 2) - rect.top - 40;
-            if (y < 20) y = 20;
-            if (y + 80 > ch - 20) y = ch - 80 - 20;
-            const x = (cw - 120) / 2;
-            createAnnBox({ x, y, w: 120, h: 80, text: '' });
-        }, 100);
-    };
-
-    img.onload = () => handleImageLoad(img);
-    img.onerror = () => {
-        // For base64 images, try without crossOrigin
-        const img2 = new Image();
-        img2.onload = () => handleImageLoad(img2);
-        img2.src = imgSrc;
-    };
-    img.src = imgSrc;
-};
-
-// Close modal
-annotateCloseBtn.onclick = () => {
-    annotateModal.classList.remove('active');
-    annotateCanvasContainer.innerHTML = '';
-    document.body.style.overflow = '';
-    annotateImageSrc = null;
-};
-
-// Add annotation box
-annotateAddBoxBtn.onclick = () => {
-    annotateAddBoxBtn.classList.remove('pulse');
-    annotateSendBtn.classList.add('ready');
-
+// ---- Create annotation box on canvas ----
+function createAnnBox(data, initialText = '') {
     const viewport = annotateCanvasContainer.querySelector('.canvas-viewport');
     if (!viewport) return;
 
-    const cWidth = viewport.offsetWidth;
-    const cHeight = viewport.offsetHeight;
-    const bWidth = 120;
-    const bHeight = 80;
-
-    const rect = viewport.getBoundingClientRect();
-    let yCenter = (window.innerHeight / 2) - rect.top - (bHeight / 2);
-    if (yCenter < 20) yCenter = 20;
-    if (yCenter + bHeight > cHeight - 20) yCenter = cHeight - bHeight - 20;
-    const xCenter = (cWidth - bWidth) / 2;
-
-    createAnnBox({ x: xCenter, y: yCenter, w: bWidth, h: bHeight, text: '' });
-};
-
-function createAnnBox(data) {
-    const viewport = annotateCanvasContainer.querySelector('.canvas-viewport');
-    if (!viewport) return;
+    annCounter++;
+    const id = 'ann_' + annCounter;
+    const number = annCounter;
 
     const box = document.createElement('div');
     box.className = 'ann-box';
+    box.dataset.annId = id;
     box.style.left = data.x + 'px';
     box.style.top = data.y + 'px';
     box.style.width = data.w + 'px';
     box.style.height = data.h + 'px';
 
-    // Delete button
-    const close = document.createElement('div');
-    close.className = 'ann-close';
-    close.innerHTML = '<i class="fa-solid fa-times"></i>';
-    close.onpointerdown = (e) => {
+    // Number badge
+    const badge = document.createElement('div');
+    badge.className = 'ann-badge';
+    badge.textContent = number;
+    box.appendChild(badge);
+
+    // Delete button on box
+    const closeBtn = document.createElement('div');
+    closeBtn.className = 'ann-close';
+    closeBtn.innerHTML = '<i class="fa-solid fa-times"></i>';
+    closeBtn.onpointerdown = (e) => {
         e.stopPropagation();
-        box.remove();
-        updateContainerPadding();
-        // Check if any boxes left
-        if (viewport.querySelectorAll('.ann-box').length === 0) {
-            annotateSendBtn.classList.remove('ready');
-        }
+        removeAnn(id);
     };
-    box.appendChild(close);
+    box.appendChild(closeBtn);
 
-    // Label
-    const label = document.createElement('div');
-    label.className = 'ann-label';
-    label.contentEditable = true;
-    label.textContent = data.text || '';
-    label.onpointerdown = e => e.stopPropagation();
-    label.oninput = () => {
-        updateContainerPadding();
-    };
-    box.appendChild(label);
-
-    // Resizers
+    // Resize handles
     ['tl', 'tr', 'bl', 'br'].forEach(dir => {
         const r = document.createElement('div');
         r.className = `ann-resizer ${dir}`;
@@ -2227,8 +2363,27 @@ function createAnnBox(data) {
     });
 
     viewport.appendChild(box);
+
+    // Card in right panel
+    const card = createAnnCard(id, number, initialText);
+
+    // Register
+    annRegistry[id] = { boxEl: box, cardEl: card, number };
+
+    // Click on box -> setActive
+    box.addEventListener('pointerdown', (e) => {
+        if (e.target.closest('.ann-close') || e.target.closest('.ann-resizer')) return;
+        setActiveAnn(id);
+    });
+
     makeAnnDraggableAndResizable(box);
-    updateContainerPadding();
+    updateAnnCount();
+    setActiveAnn(id);
+
+    setTimeout(() => {
+        card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        scheduleArrowDraw();
+    }, 80);
 }
 
 function makeAnnDraggableAndResizable(el) {
@@ -2247,7 +2402,6 @@ function makeAnnDraggableAndResizable(el) {
             startH = el.offsetHeight;
             startL = el.offsetLeft;
             startT = el.offsetTop;
-
             document.addEventListener('pointermove', onMove);
             document.addEventListener('pointerup', onUp);
             el.setPointerCapture(e.pointerId);
@@ -2255,7 +2409,7 @@ function makeAnnDraggableAndResizable(el) {
     });
 
     el.addEventListener('pointerdown', e => {
-        if (e.target.closest('.ann-label') || e.target.closest('.ann-close') || e.target.closest('.ann-resizer')) return;
+        if (e.target.closest('.ann-close') || e.target.closest('.ann-resizer')) return;
         e.stopPropagation();
         isDragging = true;
         el.style.cursor = 'grabbing';
@@ -2263,7 +2417,6 @@ function makeAnnDraggableAndResizable(el) {
         startY = e.clientY;
         startL = el.offsetLeft;
         startT = el.offsetTop;
-
         document.addEventListener('pointermove', onMove);
         document.addEventListener('pointerup', onUp);
         el.setPointerCapture(e.pointerId);
@@ -2272,103 +2425,210 @@ function makeAnnDraggableAndResizable(el) {
     function onMove(e) {
         e.preventDefault();
         if (isResizing) {
-            // Adjust pointers delta movement based on current zoom scale
             const dx = (e.clientX - startX) / zoomScale;
             const dy = (e.clientY - startY) / zoomScale;
             let w = startW, h = startH, l = startL, t = startT;
-
             if (dir.includes('r')) w += dx;
             if (dir.includes('l')) { w -= dx; l += dx; }
             if (dir.includes('b')) h += dy;
             if (dir.includes('t')) { h -= dy; t += dy; }
-
-            if (w >= 50 && h >= 50) {
+            if (w >= 40 && h >= 40) {
                 el.style.width = w + 'px';
                 el.style.height = h + 'px';
                 el.style.left = l + 'px';
                 el.style.top = t + 'px';
-                updateContainerPadding();
+                scheduleArrowDraw();
             }
         } else if (isDragging) {
-            const dx = (e.clientX - startX) / zoomScale;
-            const dy = (e.clientY - startY) / zoomScale;
-            el.style.left = (startL + dx) + 'px';
-            el.style.top = (startT + dy) + 'px';
-            updateContainerPadding();
+            el.style.left = (startL + (e.clientX - startX) / zoomScale) + 'px';
+            el.style.top = (startT + (e.clientY - startY) / zoomScale) + 'px';
+            scheduleArrowDraw();
         }
     }
 
     function onUp(e) {
-        const viewport = annotateCanvasContainer.querySelector('.canvas-viewport');
-        if (viewport) {
-            const rect = viewport.getBoundingClientRect();
-            // Drag out of viewport bounds to delete
-            if (isDragging && (e.clientX < rect.left || e.clientX > rect.right || e.clientY < rect.top || e.clientY > rect.bottom)) {
-                el.remove();
-                updateContainerPadding();
-                if (viewport.querySelectorAll('.ann-box').length === 0) {
-                    annotateSendBtn.classList.remove('ready');
-                }
-            }
-        }
-
         isDragging = false;
         isResizing = false;
         el.style.cursor = 'grab';
         document.removeEventListener('pointermove', onMove);
         document.removeEventListener('pointerup', onUp);
-        el.releasePointerCapture(e.pointerId);
-        updateContainerPadding();
+        try { el.releasePointerCapture(e.pointerId); } catch (_) {}
+        scheduleArrowDraw();
     }
 }
 
-// Zoom & Pan Event Listeners on .annotate-body
-const annotateBody = document.querySelector('.annotate-body');
+// ---- Open Modal ----
+window.openAnnotateModal = function (imgSrc, existingAnn = null) {
+    annotateImageSrc = imgSrc;
+    annotateCanvasContainer.innerHTML = '';
+
+    // Reset state
+    annRegistry = {};
+    annCounter = 0;
+    activeAnnId = null;
+
+    // Clear cards list (keep empty state element)
+    if (annCardsList) {
+        Array.from(annCardsList.querySelectorAll('.ann-card')).forEach(c => c.remove());
+    }
+    updateAnnCount();
+
+    // Reset zoom/pan
+    zoomScale = 1; panX = 0; panY = 0;
+
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+
+    const handleImageLoad = (loadedImg) => {
+        const viewport = document.createElement('div');
+        viewport.className = 'canvas-viewport';
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = loadedImg.naturalWidth;
+        canvas.height = loadedImg.naturalHeight;
+        ctx.drawImage(loadedImg, 0, 0);
+        viewport.appendChild(canvas);
+        annotateCanvasContainer.appendChild(viewport);
+        applyZoomPan();
+
+        annotateModal.classList.add('active');
+        document.body.style.overflow = 'hidden';
+
+        if (existingAnn && Array.isArray(existingAnn) && existingAnn.length > 0) {
+            setTimeout(() => {
+                const vp = annotateCanvasContainer.querySelector('.canvas-viewport');
+                if (!vp) return;
+                const canvas = vp.querySelector('canvas');
+                const cw = canvas ? canvas.width : vp.offsetWidth;
+                const ch = canvas ? canvas.height : vp.offsetHeight;
+
+                existingAnn.forEach(a => {
+                    let x, y, w, h;
+                    if (typeof a.rx === 'number' && a.rx > 0) {
+                        x = a.rx * cw;
+                        y = a.ry * ch;
+                        w = a.rw * cw;
+                        h = a.rh * ch;
+                    } else {
+                        w = Math.min(140, cw * 0.35);
+                        h = Math.min(100, ch * 0.25);
+                        x = (cw - w) / 2;
+                        y = (ch - h) / 2;
+                    }
+                    createAnnBox({ x, y, w, h }, a.text || '');
+                });
+            }, 120);
+        } else {
+            // Auto-add first box
+            setTimeout(() => {
+                const vp = annotateCanvasContainer.querySelector('.canvas-viewport');
+                if (!vp) return;
+                const cw = vp.offsetWidth, ch = vp.offsetHeight;
+                const bw = Math.min(140, cw * 0.35), bh = Math.min(100, ch * 0.25);
+                createAnnBox({ x: (cw - bw) / 2, y: (ch - bh) / 2, w: bw, h: bh });
+            }, 120);
+        }
+    };
+
+    img.onload = () => handleImageLoad(img);
+    img.onerror = () => {
+        const img2 = new Image();
+        img2.onload = () => handleImageLoad(img2);
+        img2.src = imgSrc;
+    };
+    img.src = imgSrc;
+};
+
+// Press ESC key to exit Lightbox, Annotate Modal, or active popup
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' || e.key === 'Esc') {
+        // Close Image Lightbox Popup
+        const lightboxEl = document.getElementById('imageLightbox');
+        const lightboxCloseBtn = document.getElementById('lightboxCloseBtn');
+        if (lightboxEl && (lightboxEl.classList.contains('active') || getComputedStyle(lightboxEl).display !== 'none')) {
+            if (lightboxCloseBtn) lightboxCloseBtn.click();
+            else {
+                lightboxEl.classList.remove('active');
+                lightboxEl.style.display = '';
+                document.body.style.overflow = '';
+            }
+        }
+
+        // Close Annotate Modal
+        if (annotateModal && annotateModal.classList.contains('active')) {
+            annotateCloseBtn.click();
+        }
+
+        // Close Billing Modal
+        const billingModal = document.getElementById('billingModal');
+        if (billingModal && billingModal.classList.contains('active')) {
+            const closeBillingBtn = document.getElementById('closeBillingBtn');
+            if (closeBillingBtn) closeBillingBtn.click();
+            else {
+                billingModal.classList.remove('active');
+                document.body.style.overflow = '';
+            }
+        }
+    }
+});
+
+
+
+// Close modal
+annotateCloseBtn.onclick = () => {
+    annotateModal.classList.remove('active');
+    annotateCanvasContainer.innerHTML = '';
+    document.body.style.overflow = '';
+    annotateImageSrc = null;
+    annRegistry = {};
+    annCounter = 0;
+    activeAnnId = null;
+    if (annArrowSvg) annArrowSvg.innerHTML = '';
+};
+
+// Add box button
+annotateAddBoxBtn.onclick = () => {
+    const viewport = annotateCanvasContainer.querySelector('.canvas-viewport');
+    if (!viewport) return;
+    const cw = viewport.offsetWidth, ch = viewport.offsetHeight;
+    const bw = Math.min(130, cw * 0.3), bh = Math.min(90, ch * 0.25);
+    const offset = (annCounter % 5) * 22;
+    const x = Math.min((cw - bw) / 2 + offset, cw - bw - 10);
+    const y = Math.min((ch - bh) / 2 + offset, ch - bh - 10);
+    createAnnBox({ x, y, w: bw, h: bh });
+};
+
+// ---- Zoom & Pan on annotateBody ----
+const annotateBody = document.getElementById('annotateBody');
 
 annotateBody.addEventListener('pointerdown', e => {
-    // Only pan if we clicked the background (or canvas)
     const viewport = annotateCanvasContainer.querySelector('.canvas-viewport');
     if (e.target === annotateBody || e.target === annotateCanvasContainer || (viewport && e.target.tagName === 'CANVAS')) {
         isPanning = true;
         annotateBody.style.cursor = 'grabbing';
-        startPanX = panX;
-        startPanY = panY;
-        startMouseX = e.clientX;
-        startMouseY = e.clientY;
+        startPanX = panX; startPanY = panY;
+        startMouseX = e.clientX; startMouseY = e.clientY;
         annotateBody.setPointerCapture(e.pointerId);
     }
-
-    // Touch pinch-to-zoom setup
     activePointers.push(e);
     if (activePointers.length === 2) {
         isPanning = false;
-        const p1 = activePointers[0];
-        const p2 = activePointers[1];
-        initialDist = Math.hypot(p1.clientX - p2.clientX, p1.clientY - p2.clientY);
+        initialDist = Math.hypot(activePointers[0].clientX - activePointers[1].clientX, activePointers[0].clientY - activePointers[1].clientY);
         initialScale = zoomScale;
     }
 });
 
 annotateBody.addEventListener('pointermove', e => {
-    // Update pointer position
-    const index = activePointers.findIndex(p => p.pointerId === e.pointerId);
-    if (index !== -1) {
-        activePointers[index] = e;
-    }
-
+    const idx = activePointers.findIndex(p => p.pointerId === e.pointerId);
+    if (idx !== -1) activePointers[idx] = e;
     if (isPanning) {
-        const dx = e.clientX - startMouseX;
-        const dy = e.clientY - startMouseY;
-        panX = startPanX + dx;
-        panY = startPanY + dy;
+        panX = startPanX + (e.clientX - startMouseX);
+        panY = startPanY + (e.clientY - startMouseY);
         applyZoomPan();
     } else if (activePointers.length === 2) {
-        const p1 = activePointers[0];
-        const p2 = activePointers[1];
-        const dist = Math.hypot(p1.clientX - p2.clientX, p1.clientY - p2.clientY);
+        const dist = Math.hypot(activePointers[0].clientX - activePointers[1].clientX, activePointers[0].clientY - activePointers[1].clientY);
         if (initialDist > 0) {
-            const factor = dist / initialDist;
-            zoomScale = Math.max(0.3, Math.min(5, initialScale * factor));
+            zoomScale = Math.max(0.3, Math.min(5, initialScale * (dist / initialDist)));
             applyZoomPan();
         }
     }
@@ -2376,51 +2636,34 @@ annotateBody.addEventListener('pointermove', e => {
 
 const handlePointerEnd = (e) => {
     activePointers = activePointers.filter(p => p.pointerId !== e.pointerId);
-    if (activePointers.length < 2) {
-        initialDist = 0;
-    }
+    if (activePointers.length < 2) initialDist = 0;
     if (isPanning) {
         isPanning = false;
         annotateBody.style.cursor = '';
-        try { annotateBody.releasePointerCapture(e.pointerId); } catch (err) {}
+        try { annotateBody.releasePointerCapture(e.pointerId); } catch (_) {}
     }
 };
 
 annotateBody.addEventListener('pointerup', handlePointerEnd);
 annotateBody.addEventListener('pointercancel', handlePointerEnd);
 
-// Mouse Wheel Zoom Listener
 annotateBody.addEventListener('wheel', e => {
     e.preventDefault();
-    const zoomFactor = 0.1;
     const delta = e.deltaY < 0 ? 1 : -1;
-    zoomScale = Math.max(0.3, Math.min(5, zoomScale + delta * zoomFactor));
+    zoomScale = Math.max(0.3, Math.min(5, zoomScale + delta * 0.1));
     applyZoomPan();
 }, { passive: false });
 
-// Zoom Controls Buttons
-if (annotateZoomInBtn) {
-    annotateZoomInBtn.onclick = () => {
-        zoomScale = Math.min(5, zoomScale + 0.15);
-        applyZoomPan();
-    };
-}
-if (annotateZoomOutBtn) {
-    annotateZoomOutBtn.onclick = () => {
-        zoomScale = Math.max(0.3, zoomScale - 0.15);
-        applyZoomPan();
-    };
-}
-if (annotateZoomResetBtn) {
-    annotateZoomResetBtn.onclick = () => {
-        zoomScale = 1;
-        panX = 0;
-        panY = 0;
-        applyZoomPan();
-    };
-}
+// Zoom buttons
+if (annotateZoomInBtn) annotateZoomInBtn.onclick = () => { zoomScale = Math.min(5, zoomScale + 0.15); applyZoomPan(); };
+if (annotateZoomOutBtn) annotateZoomOutBtn.onclick = () => { zoomScale = Math.max(0.3, zoomScale - 0.15); applyZoomPan(); };
+if (annotateZoomResetBtn) annotateZoomResetBtn.onclick = () => { zoomScale = 1; panX = 0; panY = 0; applyZoomPan(); };
 
-// Send annotated image to chat
+// Redraw arrows on scroll and resize
+window.addEventListener('resize', scheduleArrowDraw);
+if (annCardsList) annCardsList.addEventListener('scroll', scheduleArrowDraw);
+
+// ---- Send annotated image to chat ----
 annotateSendBtn.onclick = async () => {
     if (!annotateSendBtn.classList.contains('ready')) return;
     if (!currentRoom) return;
@@ -2428,54 +2671,50 @@ annotateSendBtn.onclick = async () => {
     const viewport = annotateCanvasContainer.querySelector('.canvas-viewport');
     if (!viewport) return;
 
-    const boxes = viewport.querySelectorAll('.ann-box');
-    if (boxes.length === 0) return;
+    const canvas = viewport.querySelector('canvas');
+    const canvasW = canvas ? canvas.width : viewport.offsetWidth;
+    const canvasH = canvas ? canvas.height : viewport.offsetHeight;
 
-    // Build annotation text from labels
-    let annotateText = '';
-    const labelTexts = [];
-    boxes.forEach((box, index) => {
-        const labelEl = box.querySelector('.ann-label');
-        const text = labelEl.textContent.trim();
-        if (text) {
-            labelTexts.push(`จุดที่ ${index + 1}: ${text}`);
-        }
+    const entries = Object.values(annRegistry);
+    if (entries.length === 0) return;
+
+    // Build annotation metadata with normalized relative positions (0..1)
+    const annotationsList = entries.map(({ boxEl, cardEl, number }) => {
+        const ta = cardEl.querySelector('.ann-card-textarea');
+        const text = ta ? ta.value.trim() : '';
+        const boxL = boxEl.offsetLeft;
+        const boxT = boxEl.offsetTop;
+        const boxW = boxEl.offsetWidth;
+        const boxH = boxEl.offsetHeight;
+
+        return {
+            num: number,
+            text: text,
+            rx: canvasW > 0 ? (boxL / canvasW) : 0,
+            ry: canvasH > 0 ? (boxT / canvasH) : 0,
+            rw: canvasW > 0 ? (boxW / canvasW) : 0,
+            rh: canvasH > 0 ? (boxH / canvasH) : 0
+        };
     });
-    if (labelTexts.length > 0) {
-        annotateText = '📌 รายการจุดแก้ไข:\n' + labelTexts.join('\n');
-    }
 
-    // Mark empty labels for export
-    boxes.forEach(box => {
-        const labelEl = box.querySelector('.ann-label');
-        if (labelEl.textContent.trim() === '') {
-            labelEl.classList.add('is-empty');
-        } else {
-            labelEl.classList.remove('is-empty');
-        }
-    });
+    const labelTexts = annotationsList.map(a => a.text ? `จุดที่ ${a.num}: ${a.text}` : null).filter(Boolean);
 
-    // Disable button during processing
+    const annotateText = labelTexts.length > 0
+        ? '📌 รายการจุดแก้ไข:\n' + labelTexts.join('\n')
+        : '';
+
     const origHTML = annotateSendBtn.innerHTML;
     annotateSendBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> กำลังส่ง...';
     annotateSendBtn.style.pointerEvents = 'none';
 
-    // Save current zoom state
-    const savedScale = zoomScale;
-    const savedPanX = panX;
-    const savedPanY = panY;
+    const savedScale = zoomScale, savedPanX = panX, savedPanY = panY;
 
     try {
-        // Reset zoom/pan so html2canvas captures 1:1 image layout
-        zoomScale = 1;
-        panX = 0;
-        panY = 0;
+        zoomScale = 1; panX = 0; panY = 0;
         applyZoomPan();
+        clearActiveAnn();
 
-        // Hide UI elements for capture
         annotateCanvasContainer.classList.add('exporting');
-
-        // Let layout settle for a frame
         await new Promise(resolve => requestAnimationFrame(resolve));
 
         const canvasResult = await html2canvas(annotateCanvasContainer, {
@@ -2487,37 +2726,40 @@ annotateSendBtn.onclick = async () => {
         });
 
         annotateCanvasContainer.classList.remove('exporting');
-
         const dataUrl = canvasResult.toDataURL('image/png');
 
-        // Send to chat (text + image)
         await sendMessage(annotateText || null, {
             name: `marked_${Date.now()}.png`,
             type: 'image/png',
-            data: dataUrl
+            data: dataUrl,
+            originalImage: annotateImageSrc,
+            annotations: annotationsList
+
         });
 
-        // Close modal
         annotateModal.classList.remove('active');
         annotateCanvasContainer.innerHTML = '';
         document.body.style.overflow = '';
         annotateImageSrc = null;
+        annRegistry = {};
+        annCounter = 0;
+        activeAnnId = null;
+        if (annArrowSvg) annArrowSvg.innerHTML = '';
 
     } catch (err) {
         console.error('Annotation send error:', err);
         alert('เกิดข้อผิดพลาดในการส่ง: ' + err.message);
         annotateCanvasContainer.classList.remove('exporting');
     } finally {
-        // Restore zoom state
-        zoomScale = savedScale;
-        panX = savedPanX;
-        panY = savedPanY;
+        zoomScale = savedScale; panX = savedPanX; panY = savedPanY;
         applyZoomPan();
-
         annotateSendBtn.innerHTML = origHTML;
         annotateSendBtn.style.pointerEvents = '';
     }
 };
+
+
+
 
 // ===== Lightbox Zoom & Pan System =====
 
@@ -2567,13 +2809,17 @@ document.getElementById('lightboxDownloadBtn').onclick = (e) => {
     window.forceDownload(lbDownloadUrl, 'image.png');
 };
 
-// Annotate button
-document.getElementById('lightboxAnnotateBtn').onclick = () => {
-    if (!lbImgSrc) return;
-    lightboxEl.classList.remove('active');
-    document.body.style.overflow = '';
-    setTimeout(() => window.openAnnotateModal(lbImgSrc), 200);
-};
+// Annotate button (optional)
+const lbAnnotateBtn = document.getElementById('lightboxAnnotateBtn');
+if (lbAnnotateBtn) {
+    lbAnnotateBtn.onclick = () => {
+        if (!lbImgSrc) return;
+        lightboxEl.classList.remove('active');
+        document.body.style.overflow = '';
+        setTimeout(() => window.openAnnotateModal(lbImgSrc), 200);
+    };
+}
+
 
 // Zoom controls
 document.getElementById('lightboxZoomInBtn').onclick = (e) => {
