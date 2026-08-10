@@ -975,6 +975,9 @@ body {
 }
 
 /* ===== Annotation Mark Modal ===== */
+/* ============================================================
+   ANNOTATE MODAL — SPLIT VIEW
+   ============================================================ */
 .annotate-modal {
     display: none;
     position: fixed;
@@ -982,141 +985,409 @@ body {
     left: 0;
     width: 100vw;
     height: 100vh;
-    background: rgba(0, 0, 0, 0.92);
+    background: rgba(0, 0, 0, 0.95);
     backdrop-filter: blur(12px);
     z-index: 10000;
-    flex-direction: column;
     opacity: 0;
     transition: opacity 0.3s ease;
 }
 
 .annotate-modal.active {
-    display: flex;
+    display: block;
     opacity: 1;
 }
 
+/* SVG Arrow overlay — floats above everything inside the modal */
+.ann-arrow-svg {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 10020;
+    overflow: visible;
+}
+
+/* Inner: row layout */
 .annotate-modal-inner {
     display: flex;
-    flex-direction: column;
-    height: 100%;
+    flex-direction: row;
+    height: 100vh;
     width: 100%;
 }
 
-.annotate-header {
+/* ---- LEFT: canvas area ---- */
+.annotate-left {
+    flex: 1;
     display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 14px 20px;
-    background: rgba(0, 0, 0, 0.5);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-    flex-shrink: 0;
+    flex-direction: column;
+    min-width: 0;
+    background: #0f0f14;
 }
 
-.annotate-header h3 {
-    color: #fff;
-    font-size: 1.05rem;
-    font-weight: 600;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    margin: 0;
-}
-
-.annotate-header h3 i {
-    color: #ef4444;
-}
-
-.annotate-header-right {
+.annotate-left-header {
     display: flex;
     align-items: center;
     gap: 12px;
+    padding: 12px 16px;
+    background: rgba(0, 0, 0, 0.5);
+    border-bottom: 1px solid rgba(255,255,255,0.07);
+    flex-shrink: 0;
+    z-index: 10001;
 }
 
-.annotate-hint {
-    font-size: 0.7rem;
-    color: rgba(255, 255, 255, 0.4);
-    font-weight: 400;
+.annotate-left-header h3 {
+    color: #fff;
+    font-size: 0.95rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+    flex: 1;
 }
 
+.annotate-left-header h3 i {
+    color: #ef4444;
+}
+
+/* Zoom controls in left header */
+.annotate-zoom-controls-left {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.annotate-zoom-controls-left button {
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.15);
+    color: rgba(255,255,255,0.8);
+    width: 34px;
+    height: 34px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 13px;
+    transition: all 0.2s ease;
+}
+
+.annotate-zoom-controls-left button:hover {
+    background: rgba(99,102,241,0.5);
+    border-color: #6366f1;
+    color: white;
+}
+
+.annotate-zoom-controls-left button:active {
+    transform: scale(0.92);
+}
+
+/* Close button (icon only) */
 .annotate-close-btn {
     display: inline-flex;
     align-items: center;
-    gap: 8px;
-    padding: 10px 20px;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
     border: none;
-    border-radius: 100px;
-    background: rgba(239, 68, 68, 0.2);
+    border-radius: 8px;
+    background: rgba(239, 68, 68, 0.15);
     color: #ef4444;
     font-size: 1rem;
-    font-weight: 700;
     cursor: pointer;
     transition: all 0.2s;
     font-family: 'Inter', 'Kanit', sans-serif;
-    border: 1.5px solid rgba(239, 68, 68, 0.3);
-}
-
-.annotate-close-btn i {
-    font-size: 1.1rem;
+    border: 1px solid rgba(239,68,68,0.25);
+    flex-shrink: 0;
 }
 
 .annotate-close-btn:hover {
     background: rgba(239, 68, 68, 0.35);
-    transform: translateY(-2px);
-    box-shadow: 0 6px 16px rgba(239, 68, 68, 0.3);
+    transform: scale(1.1);
 }
 
 .annotate-close-btn:active {
-    transform: scale(0.95);
+    transform: scale(0.92);
 }
 
 .annotate-body {
     flex: 1;
     overflow: auto;
     display: flex;
-    align-items: flex-start;
+    align-items: center;
     justify-content: center;
-    padding: 20px;
-    position: relative; /* For floating zoom controls */
+    padding: 24px;
+    position: relative;
+    cursor: grab;
 }
 
-/* Floating Zoom Controls */
-.annotate-zoom-controls {
-    position: absolute;
-    top: 24px;
-    right: 24px;
+.annotate-body:active {
+    cursor: grabbing;
+}
+
+/* ---- RIGHT: Problem list panel ---- */
+.annotate-right {
+    width: 300px;
+    min-width: 260px;
+    max-width: 340px;
+    background: #13131a;
+    border-left: 1px solid rgba(255,255,255,0.08);
     display: flex;
     flex-direction: column;
-    gap: 10px;
-    z-index: 10005;
+    z-index: 10010;
+    flex-shrink: 0;
 }
 
-.annotate-zoom-controls button {
-    background: rgba(18, 18, 20, 0.8);
-    border: 1px solid var(--border);
-    color: var(--text-main);
-    width: 44px;
-    height: 44px;
+.annotate-right-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 14px;
+    background: rgba(0,0,0,0.3);
+    border-bottom: 1px solid rgba(255,255,255,0.07);
+    flex-shrink: 0;
+}
+
+.annotate-right-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: rgba(255,255,255,0.8);
+    font-size: 0.9rem;
+    font-weight: 700;
+}
+
+.ann-count-badge {
+    background: #6366f1;
+    color: white;
+    padding: 2px 9px;
+    border-radius: 50px;
+    font-size: 12px;
+    font-weight: 700;
+    min-width: 22px;
+    text-align: center;
+}
+
+/* Small add button in right header — Bright White Background */
+.annotate-btn-add-sm {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 14px;
+    border: none;
+    border-radius: 8px;
+    background: #ffffff !important;
+    color: #0f172a !important;
+    border: 1px solid #e2e8f0;
+    font-size: 13.5px;
+    font-weight: 800;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-family: 'Inter','Kanit',sans-serif;
+    white-space: nowrap;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+}
+
+.annotate-btn-add-sm i {
+    color: #10b981;
+    font-size: 14px;
+}
+
+.annotate-btn-add-sm:hover {
+    background: #f8fafc !important;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+}
+
+.annotate-btn-add-sm:active {
+    transform: scale(0.93);
+}
+
+/* Cards list */
+.ann-cards-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.ann-cards-list::-webkit-scrollbar {
+    width: 4px;
+}
+
+.ann-cards-list::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.ann-cards-list::-webkit-scrollbar-thumb {
+    background: rgba(255,255,255,0.12);
+    border-radius: 4px;
+}
+
+/* Empty state */
+.ann-empty-state {
+    text-align: center;
+    padding: 40px 16px;
+    color: rgba(255,255,255,0.3);
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+}
+
+.ann-empty-state i {
+    font-size: 2rem;
+    margin-bottom: 6px;
+    color: rgba(255,255,255,0.15);
+}
+
+.ann-empty-state p {
+    font-size: 13px;
+    line-height: 1.6;
+    margin: 0;
+}
+
+/* ann-card: Bright Light High-Contrast Theme */
+.ann-card {
+    background: #ffffff !important;
+    border: 2px solid #cbd5e1 !important;
+    border-radius: 10px;
+    padding: 10px 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+}
+
+.ann-card:hover {
+    border-color: #ef4444 !important;
+    background: #ffffff !important;
+    box-shadow: 0 6px 16px rgba(239,68,68,0.25);
+}
+
+.ann-card.active {
+    border-color: #ef4444 !important;
+    background: #fff5f5 !important;
+    box-shadow: 0 0 0 3px rgba(239,68,68,0.35), 0 6px 16px rgba(239,68,68,0.3);
+}
+
+.ann-card-header {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    margin-bottom: 8px;
+}
+
+.ann-card-num {
+    width: 26px;
+    height: 26px;
+    background: #ef4444;
+    color: white;
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
+    font-size: 12px;
+    font-weight: 900;
+    flex-shrink: 0;
+    box-shadow: 0 2px 6px rgba(239,68,68,0.5);
+    transition: background 0.2s;
+}
+
+.ann-card.active .ann-card-num {
+    box-shadow: 0 0 0 3px rgba(239,68,68,0.4);
+}
+
+.ann-card-label {
+    color: #0f172a !important;
+    font-size: 13px;
+    font-weight: 700;
+    flex: 1;
+}
+
+.ann-card-del {
+    background: none;
+    border: none;
+    color: #64748b !important;
     cursor: pointer;
-    font-size: 16px;
+    padding: 4px 6px;
+    border-radius: 6px;
+    font-size: 13px;
+    transition: all 0.2s;
+    line-height: 1;
+}
+
+.ann-card-del:hover {
+    background: #fee2e2 !important;
+    color: #ef4444 !important;
+}
+
+/* Bright Textarea */
+.ann-card-textarea {
+    width: 100%;
+    border: 1.5px solid #cbd5e1 !important;
+    border-radius: 8px;
+    padding: 8px 10px;
+    font-size: 13.5px;
+    font-weight: 600;
+    font-family: 'Inter','Kanit',sans-serif;
+    resize: vertical;
+    min-height: 60px;
+    background: #f8fafc !important;
+    color: #0f172a !important;
     transition: all 0.2s ease;
-    backdrop-filter: blur(8px);
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+    line-height: 1.55;
+    box-sizing: border-box;
+    touch-action: auto !important;
+    user-select: text !important;
+    -webkit-user-select: text !important;
 }
 
-.annotate-zoom-controls button:hover {
-    background: var(--accent);
-    border-color: var(--accent);
-    color: white;
-    transform: scale(1.1);
-    box-shadow: 0 0 15px var(--accent-glow);
+
+.ann-card-textarea::placeholder {
+    color: #64748b !important;
+    font-weight: 400;
 }
 
-.annotate-zoom-controls button:active {
-    transform: scale(0.95);
+.ann-card-textarea:focus {
+    outline: none;
+    border-color: #6366f1 !important;
+    background: #ffffff !important;
+    color: #0f172a !important;
+    box-shadow: 0 0 0 3px rgba(99,102,241,0.25);
+}
+
+.ann-card-textarea::selection {
+    background: #2563eb !important; /* Bright vivid royal blue */
+    color: #ffffff !important;      /* Pure crisp white text */
+    text-shadow: none !important;
+}
+
+.ann-card-textarea::-moz-selection {
+    background: #2563eb !important;
+    color: #ffffff !important;
+    text-shadow: none !important;
+}
+
+
+/* Right panel toolbar (send button) */
+.annotate-right-toolbar {
+    padding: 12px 14px;
+    padding-bottom: max(12px, env(safe-area-inset-bottom));
+    background: rgba(0,0,0,0.3);
+    border-top: 1px solid rgba(255,255,255,0.07);
+    flex-shrink: 0;
+}
+
+.annotate-right-toolbar .annotate-btn-send {
+    width: 100%;
+    justify-content: center;
 }
 
 .annotate-canvas-container {
@@ -1149,17 +1420,32 @@ body {
 /* Annotation Box */
 .canvas-viewport .ann-box {
     position: absolute;
-    border: 3px dashed #ef4444;
-    background: rgba(239, 68, 68, 0.1);
-    min-width: 60px;
-    min-height: 60px;
+    border: 3px solid #ef4444;
+    background: rgba(239, 68, 68, 0.12);
+    min-width: 50px;
+    min-height: 50px;
     cursor: grab;
     user-select: none;
     z-index: 2;
     border-radius: 8px;
     box-sizing: border-box;
     touch-action: none;
-    transition: border-color 0.2s, background 0.2s;
+    transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
+    box-shadow: 0 4px 12px rgba(239,68,68,0.25);
+}
+
+.canvas-viewport .ann-box.active {
+    border-color: #ef4444;
+    background: rgba(239,68,68,0.22);
+    box-shadow: 0 6px 20px rgba(239,68,68,0.55);
+    z-index: 20;
+}
+
+.canvas-viewport .ann-box.dimmed {
+    opacity: 0.35;
+    border-color: rgba(255,255,255,0.3);
+    background: rgba(0,0,0,0.1);
+    box-shadow: none;
 }
 
 .ann-box:active {
@@ -1228,6 +1514,28 @@ body {
     transform: scale(0.9);
 }
 
+/* Number Badge on marker box (replaces old ann-label text below) */
+.ann-box .ann-badge {
+    position: absolute;
+    top: -12px;
+    left: -12px;
+    width: 24px;
+    height: 24px;
+    background: #ef4444;
+    border: 2px solid white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: 800;
+    font-size: 11px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+    z-index: 15;
+    pointer-events: none;
+    transition: background 0.2s;
+}
+
 /* Text Label */
 .ann-box .ann-label {
     position: absolute;
@@ -1267,25 +1575,41 @@ body {
     border-color: transparent transparent rgba(30, 41, 59, 0.95) transparent;
 }
 
-/* Exporting mode - hide UI */
+/* Exporting mode — hide UI elements, keep badge for numbering */
 .annotate-canvas-container.exporting .ann-resizer,
-.annotate-canvas-container.exporting .ann-close,
-.annotate-canvas-container.exporting .ann-label.is-empty,
-.annotate-canvas-container.exporting .ann-label.is-empty::after {
+.annotate-canvas-container.exporting .ann-close {
     display: none !important;
 }
 
-/* Toolbar */
-.annotate-toolbar {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 12px;
-    padding: 14px 20px;
-    padding-bottom: max(14px, env(safe-area-inset-bottom));
-    background: rgba(0, 0, 0, 0.5);
-    border-top: 1px solid rgba(255, 255, 255, 0.08);
-    flex-shrink: 0;
+/* Old ann-label (hidden — text is now in right panel cards) */
+.ann-box .ann-label {
+    display: none;
+}
+
+/* Responsive: mobile stacks top/bottom */
+@media (max-width: 700px) {
+    .annotate-modal-inner {
+        flex-direction: column;
+    }
+
+    .annotate-left {
+        flex: none;
+        height: 55vh;
+    }
+
+    .annotate-right {
+        width: 100%;
+        max-width: 100%;
+        min-width: 0;
+        height: 45vh;
+        border-left: none;
+        border-top: 1px solid rgba(255,255,255,0.08);
+    }
+
+    .annotate-right-toolbar .annotate-btn-send {
+        font-size: 14px;
+        padding: 10px 16px;
+    }
 }
 
 .annotate-btn {
@@ -1339,6 +1663,7 @@ body {
     transform: translateY(-2px);
     box-shadow: 0 8px 24px rgba(37, 99, 235, 0.5);
 }
+
 
 /* Mark Button on Image Bubbles */
 .mark-image-btn {
@@ -1423,7 +1748,199 @@ body {
     }
 }
 
-/* ===== Marked Image Styles ===== */
+/* ===== Problem Center Bubble (โจทย์ปัญหา — Centered in Chat) ===== */
+
+/* Override bubble alignment — centered, full-width */
+.message-bubble.problem-center {
+    align-self: center !important;
+    max-width: min(720px, 96%) !important;
+    width: min(720px, 96%);
+    background: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    border-radius: 0 !important;
+    margin: 12px auto !important;
+}
+
+/* The card container */
+.problem-card {
+    background: #0e0c18;
+    border: 2px solid #eab308;
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: 0 8px 32px rgba(234, 179, 8, 0.22), 0 4px 16px rgba(0,0,0,0.5);
+    position: relative;
+}
+
+/* Header bar */
+.problem-card-header {
+    background: linear-gradient(135deg, #eab308, #ca8a04);
+    padding: 7px 16px;
+    display: flex;
+    align-items: center;
+}
+
+.problem-tag {
+    color: #ffffff;
+    font-size: 0.82rem;
+    font-weight: 800;
+    letter-spacing: 0.5px;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.4);
+}
+
+/* Body: relative container for SVG overlay */
+.problem-card-body {
+    position: relative;
+    display: flex;
+    flex-direction: row;
+    gap: 0;
+    min-height: 180px;
+}
+
+/* SVG Arrow Overlay inside Chat Card */
+.problem-card-svg {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 10;
+    overflow: visible;
+}
+
+/* Image column */
+.problem-image-col {
+    position: relative;
+    cursor: zoom-in;
+    flex-shrink: 0;
+    max-width: 52%;
+    background: #06060c;
+    border-right: 1px solid rgba(234,179,8,0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.problem-image-col .problem-img {
+    display: block;
+    width: 100%;
+    height: auto;
+    max-height: 360px;
+    object-fit: contain;
+    border-radius: 0;
+}
+
+/* Annotation list column */
+.problem-ann-col {
+    flex: 1;
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    background: #12101e;
+    justify-content: center;
+    min-width: 0;
+    z-index: 2;
+}
+
+/* Each annotation item row - Zebra Striping (Alternating colors) */
+.prob-ann-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    border-radius: 9px;
+    padding: 10px 13px;
+    transition: transform 0.2s, box-shadow 0.2s;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+}
+
+/* Odd rows: Deep Violet Blue */
+.prob-ann-item:nth-child(odd) {
+    background: #1e1b30;
+    border: 1.5px solid rgba(99, 102, 241, 0.45);
+    border-left: 5px solid #6366f1;
+}
+
+/* Even rows: Rich Slate Amber */
+.prob-ann-item:nth-child(even) {
+    background: #2a2238;
+    border: 1.5px solid rgba(245, 158, 11, 0.45);
+    border-left: 5px solid #f59e0b;
+}
+
+.prob-ann-item:hover {
+    transform: translateX(3px);
+    box-shadow: 0 4px 12px rgba(239, 68, 68, 0.25);
+}
+
+/* Number badge in chat item */
+.prob-ann-num {
+    width: 26px;
+    height: 26px;
+    min-width: 26px;
+    background: #ef4444;
+    border: 2px solid #ffffff;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #ffffff;
+    font-weight: 900;
+    font-size: 13px;
+    box-shadow: 0 2px 6px rgba(239,68,68,0.6);
+    flex-shrink: 0;
+    margin-top: 1px;
+}
+
+/* Annotation text in chat item - High Contrast */
+.prob-ann-text {
+    color: #ffffff;
+    font-size: 0.88rem;
+    font-weight: 600;
+    line-height: 1.5;
+    word-break: break-word;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+}
+
+/* Hide old timestamp/meta when problem-center */
+.problem-center .message-meta {
+    padding: 6px 14px 8px;
+    background: rgba(0,0,0,0.4);
+    border-top: 1px solid rgba(255,255,255,0.06);
+}
+
+/* High-visibility selection highlight for text selection inside textarea */
+.ann-card-textarea::selection {
+    background: #2563eb !important; /* Bright vivid royal blue */
+    color: #ffffff !important;      /* Pure crisp white text */
+    text-shadow: none !important;
+}
+
+.ann-card-textarea::-moz-selection {
+    background: #2563eb !important;
+    color: #ffffff !important;
+    text-shadow: none !important;
+}
+
+
+/* Mobile: stack vertically */
+@media (max-width: 600px) {
+    .problem-card-body {
+        flex-direction: column;
+    }
+    .problem-image-col {
+        max-width: 100%;
+        border-right: none;
+        border-bottom: 1px solid rgba(234,179,8,0.3);
+    }
+    .problem-ann-col {
+        padding: 12px;
+    }
+}
+
+
+/* Keep old marked-image-wrapper for legacy compatibility */
 .marked-image-wrapper {
     position: relative;
     border: 2px solid #eab308;
@@ -1451,6 +1968,7 @@ body {
 .marked-media .message-img {
     border-radius: 0 !important;
 }
+
 
 /* ===== Image Lightbox Popup with Zoom ===== */
 .image-lightbox {
@@ -1558,33 +2076,43 @@ body {
     max-height: none;
 }
 
-/* Action buttons directly under the image */
+/* Action buttons floating at bottom center */
 .lightbox-actions {
+    position: absolute;
+    bottom: max(24px, env(safe-area-inset-bottom));
+    left: 50%;
+    transform: translateX(-50%);
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 10px;
-    padding: 16px 16px max(16px, env(safe-area-inset-bottom));
-    flex-shrink: 0;
+    gap: 12px;
+    padding: 8px 16px;
+    background: rgba(18, 18, 24, 0.88);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 50px;
+    backdrop-filter: blur(14px);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+    z-index: 100;
 }
 
 .lb-action-btn {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 7px;
-    padding: 11px 22px;
+    gap: 8px;
+    padding: 10px 22px;
     border: none;
     border-radius: 28px;
     font-size: 0.9rem;
-    font-weight: 650;
+    font-weight: 700;
     cursor: pointer;
     transition: all 0.2s;
     font-family: 'Inter', 'Kanit', sans-serif;
     color: #fff;
-    min-width: 110px;
+    min-width: 100px;
     letter-spacing: 0.3px;
 }
+
 
 .lb-action-btn i {
     font-size: 16px;
