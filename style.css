@@ -183,6 +183,8 @@ body {
     border-bottom: 1px solid var(--border);
     display: flex;
     align-items: center;
+    justify-content: space-between;
+    gap: 12px;
 }
 
 .room-status {
@@ -2509,3 +2511,193 @@ body {
     70%  { opacity: 0; }
     100% { opacity: 0; }
 }
+
+/* ===== Cancel Contact & Room Closed Styles ===== */
+.chat-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.cancel-contact-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 15px;
+    border-radius: 20px;
+    border: 1px solid rgba(239, 68, 68, 0.45);
+    background: rgba(239, 68, 68, 0.1);
+    color: #f87171;
+    font-family: inherit;
+    font-size: 0.85rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    white-space: nowrap;
+}
+
+.cancel-contact-btn:hover {
+    background: rgba(239, 68, 68, 0.22);
+    border-color: #ef4444;
+    color: #ffffff;
+    box-shadow: 0 0 12px rgba(239, 68, 68, 0.35);
+    transform: translateY(-1px);
+}
+
+.cancel-contact-btn:active {
+    transform: scale(0.96);
+}
+
+.cancel-contact-btn.is-closed {
+    border-color: rgba(148, 163, 184, 0.3);
+    background: rgba(148, 163, 184, 0.1);
+    color: #94a3b8;
+    cursor: not-allowed;
+    pointer-events: none;
+    box-shadow: none;
+    transform: none;
+}
+
+.dot.closed {
+    background: #ef4444 !important;
+    box-shadow: 0 0 8px rgba(239, 68, 68, 0.7);
+}
+
+.message-room-closed {
+    align-self: center;
+    background: linear-gradient(135deg, rgba(239, 68, 68, 0.2), rgba(185, 28, 28, 0.3));
+    border: 1px solid rgba(239, 68, 68, 0.55);
+    color: #fecaca;
+    padding: 12px 24px;
+    border-radius: 16px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    margin: 15px auto;
+    text-align: center;
+    box-shadow: 0 4px 20px rgba(239, 68, 68, 0.25);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    animation: roomClosedFadeIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    line-height: 1.4;
+    max-width: 90%;
+    word-break: break-word;
+}
+
+@keyframes roomClosedFadeIn {
+    0% {
+        opacity: 0;
+        transform: scale(0.9) translateY(8px);
+    }
+    100% {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+}
+
+.input-wrapper.is-closed {
+    opacity: 0.65;
+    background: rgba(15, 23, 42, 0.6);
+    border-color: rgba(239, 68, 68, 0.3);
+    cursor: not-allowed;
+}
+
+.input-wrapper.is-closed #messageInput {
+    cursor: not-allowed;
+    color: #94a3b8;
+}
+
+.input-wrapper.is-closed button {
+    opacity: 0.3;
+    pointer-events: none;
+    cursor: not-allowed;
+}
+
+/* Cancel Confirm Modal */
+.cancel-confirm-card {
+    max-width: 380px;
+    padding: 28px 24px;
+    border-top: 5px solid #ef4444 !important;
+    text-align: center;
+}
+
+.cancel-confirm-icon-wrap {
+    margin-bottom: 10px;
+}
+
+.cancel-big-icon {
+    font-size: 3rem;
+    display: inline-block;
+    animation: alertBounce 0.6s ease;
+}
+
+@keyframes alertBounce {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.15); }
+}
+
+.cancel-confirm-title {
+    color: #ef4444;
+    margin: 0 0 10px 0;
+    font-size: 1.3rem;
+    font-weight: 600;
+}
+
+.cancel-confirm-desc {
+    color: var(--text-dim, #94a3b8);
+    font-size: 0.9rem;
+    line-height: 1.5;
+    margin: 0 0 22px 0;
+}
+
+.cancel-confirm-desc span {
+    color: #f87171;
+    font-weight: 500;
+    display: block;
+    margin-top: 6px;
+    font-size: 0.85rem;
+}
+
+.cancel-confirm-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+}
+
+.cancel-modal-btn {
+    padding: 10px 20px;
+    border-radius: 10px;
+    font-family: inherit;
+    font-size: 0.95rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: none;
+}
+
+.cancel-modal-btn-dismiss {
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--text-main, #e2e8f0);
+    border: 1px solid var(--border, rgba(255, 255, 255, 0.15));
+}
+
+.cancel-modal-btn-dismiss:hover {
+    background: rgba(255, 255, 255, 0.15);
+}
+
+.cancel-modal-btn-confirm {
+    background: #ef4444;
+    color: #ffffff;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    box-shadow: 0 4px 14px rgba(239, 68, 68, 0.35);
+}
+
+.cancel-modal-btn-confirm:hover {
+    background: #dc2626;
+    box-shadow: 0 6px 20px rgba(239, 68, 68, 0.5);
+    transform: translateY(-1px);
+}
+
