@@ -55,6 +55,12 @@
                             <button id="copyBtn">คัดลอก</button>
                         </div>
                     </div>
+                    <div class="chat-header-actions">
+                        <button id="cancelContactBtn" class="cancel-contact-btn" title="ยกเลิกการติดต่อและปิดห้อง">
+                            <i class="fa-solid fa-ban"></i>
+                            <span>ยกเลิกการติดต่อ</span>
+                        </button>
+                    </div>
                 </header>
 
                 <!-- Voice Broadcast Listener Bar -->
@@ -311,6 +317,32 @@
 
     <div id="copyToast" class="copy-toast">คัดลอกเรียบร้อย!</div>
     <div id="downloadToast" class="copy-toast download-toast">กำลังดาวน์โหลด...</div>
+    
+    <!-- Cancel Contact Confirmation Modal -->
+    <div id="cancelConfirmModal" class="upload-modal">
+        <div class="modal-content cancel-confirm-card">
+            <div style="text-align: right; margin-top: -10px; margin-right: -10px;">
+                <button id="closeCancelModalBtn"
+                    style="background:none; border:none; color:var(--text-dim); font-size:1.5rem; cursor:pointer;">&times;</button>
+            </div>
+            <div class="cancel-confirm-icon-wrap">
+                <span class="cancel-big-icon">🚫</span>
+            </div>
+            <h3 class="cancel-confirm-title">ยกเลิกการติดต่อ?</h3>
+            <p class="cancel-confirm-desc">
+                คุณแน่ใจหรือไม่ว่าต้องการยกเลิกการติดต่อและปิดห้องนี้?<br>
+                <span>เมื่อปิดแล้ว ทั้งสองฝ่ายจะไม่สามารถพิมพ์หรือส่งข้อความในห้องนี้ได้อีก</span>
+            </p>
+            <div class="cancel-confirm-actions">
+                <button id="cancelModalDismissBtn" class="cancel-modal-btn cancel-modal-btn-dismiss">
+                    กลับ
+                </button>
+                <button id="confirmCancelContactBtn" class="cancel-modal-btn cancel-modal-btn-confirm">
+                    <i class="fa-solid fa-ban"></i> ยืนยันปิดห้อง
+                </button>
+            </div>
+        </div>
+    </div>
     
     <!-- Facebook Browser Help Modal -->
     <div id="facebookHelpModal" class="upload-modal">
