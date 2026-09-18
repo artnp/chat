@@ -1,4 +1,5 @@
 @echo off
+chcp 65001 >nul
 color 0A
 title Chat Local Server - Port 8080
 
@@ -13,52 +14,36 @@ echo Press Ctrl+C or close this window to stop server
 echo ================================================
 echo.
 
+REM Clear any old process holding port 8080
+for /f "tokens=5" %%a in ('netstat -aon ^| findstr ":8080" ^| findstr "LISTENING"') do (
+    taskkill /F /PID %%a >nul 2>&1
+)
+
+REM Open browser after 2 seconds
+start "" cmd /c "timeout /t 2 /nobreak >nul && start http://127.0.0.1:8080"
+
+REM Check if Node.js is available
+where npx >nul 2>nul
+if %errorlevel% equ 0 (
+    echo [OK] Using Node.js HTTP Server
+    call npx -y http-server -p 8080 -a 127.0.0.1 --cors -c-1
+    goto :end
+)
+
 REM Check if Python is available
 where python >nul 2>nul
 if %errorlevel% equ 0 (
     echo [OK] Using Python HTTP Server
-    echo [INFO] Opening browser in 2 seconds...
-    echo.
-    
-    REM Open browser after 2 seconds
-    start "" cmd /c "timeout /t 2 /nobreak >nul && start http://127.0.0.1:8080"
-    
-    REM Start Python server
     python -m http.server 8080 --bind 127.0.0.1
     goto :end
 )
 
-REM If no Python, try Node.js
-where node >nul 2>nul
-if %errorlevel% equ 0 (
-    echo [OK] Using Node.js HTTP Server
-    echo [INFO] Installing http-server (one time only)...
-    call npm install -g http-server >nul 2>nul
-    echo [INFO] Opening browser in 2 seconds...
-    echo.
-    
-    REM Open browser after 2 seconds
-    start "" cmd /c "timeout /t 2 /nobreak >nul && start http://127.0.0.1:8080"
-    
-    REM Start Node server
-    http-server -p 8080 -a 127.0.0.1 --cors -c-1
-    goto :end
-)
-
-REM If neither Python nor Node.js is found
 echo [ERROR] Python or Node.js not found!
-echo.
-echo Please install one of the following:
-echo   1. Python from https://www.python.org/downloads/
-echo   2. Node.js from https://nodejs.org/
-echo.
+echo Please install Python or Node.js to run the local server.
 pause
 exit /b 1
 
 :end
 echo.
-echo.
-echo ================================================
-echo Server stopped. Port 8080 is now available.
-echo ================================================
-timeout /t 3 >nul
+echo Server stopped.
+timeout /t 2 >nul
