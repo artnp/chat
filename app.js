@@ -20,6 +20,7 @@ let currentUser = 'User_' + Math.floor(Math.random() * 1000);
 const DELETION_TIME_MS = 10 * 60 * 1000; // 10 minutes
 const SMALL_MAX_SIZE = 3 * 1024 * 1024; // 3MB
 let pendingImageData = null; // Store pasted image data
+let isRoomClosed = false;
 
 // DOM Elements
 const loginScreen = document.getElementById('loginScreen');
@@ -35,6 +36,11 @@ const inputAttachBtn = document.getElementById('inputAttachBtn');
 const mainFileInput = document.getElementById('mainFileInput');
 const notifyBtn = document.getElementById('notifyBtn');
 const micBtn = document.getElementById('micBtn');
+const cancelContactBtn = document.getElementById('cancelContactBtn');
+const cancelConfirmModal = document.getElementById('cancelConfirmModal');
+const closeCancelModalBtn = document.getElementById('closeCancelModalBtn');
+const cancelModalDismissBtn = document.getElementById('cancelModalDismissBtn');
+const confirmCancelContactBtn = document.getElementById('confirmCancelContactBtn');
 
 // Upload Progress Overlay Elements
 const progressOverlay = document.getElementById('progressOverlay');
@@ -263,6 +269,149 @@ document.getElementById('closeContactBtn').addEventListener('click', () => {
     document.getElementById('contactModal').classList.remove('active');
 });
 
+// ===== Cancel Contact & Room Closed Logic =====
+function applyRoomClosedUI() {
+    isRoomClosed = true;
+
+    // 1. Lock Input & Buttons
+    if (messageInput) {
+        messageInput.disabled = true;
+        messageInput.value = '';
+        messageInput.placeholder = '🚫 ห้องนี้ถูกปิดตัวแล้ว! โปรดติดต่อที่ต้นทาง';
+    }
+
+    const inputWrapper = document.querySelector('.input-wrapper');
+    if (inputWrapper) {
+        inputWrapper.classList.add('is-closed');
+    }
+
+    if (sendBtn) {
+        sendBtn.disabled = true;
+        sendBtn.style.pointerEvents = 'none';
+    }
+    if (inputAttachBtn) {
+        inputAttachBtn.disabled = true;
+        inputAttachBtn.style.pointerEvents = 'none';
+    }
+    const screenshotBtnEl = document.getElementById('screenshotBtn');
+    if (screenshotBtnEl) {
+        screenshotBtnEl.disabled = true;
+        screenshotBtnEl.style.pointerEvents = 'none';
+    }
+    if (micBtn) {
+        micBtn.disabled = true;
+        micBtn.style.pointerEvents = 'none';
+    }
+    if (notifyBtn) {
+        notifyBtn.disabled = true;
+        notifyBtn.style.pointerEvents = 'none';
+    }
+    if (mainFileInput) {
+        mainFileInput.disabled = true;
+    }
+
+    // 2. Update Header Button & Status Dot
+    if (cancelContactBtn) {
+        cancelContactBtn.classList.add('is-closed');
+        cancelContactBtn.disabled = true;
+        cancelContactBtn.innerHTML = '<i class="fa-solid fa-ban"></i> <span>ห้องนี้ถูกปิดแล้ว</span>';
+        cancelContactBtn.title = 'ห้องนี้ถูกปิดตัวแล้ว';
+    }
+
+    const dot = document.querySelector('.dot');
+    if (dot) {
+        dot.classList.remove('broadcasting');
+        dot.classList.add('closed');
+    }
+
+    // 3. Close open modals if any
+    if (cancelConfirmModal) cancelConfirmModal.classList.remove('active');
+    const billModal = document.getElementById('billingModal');
+    if (billModal) billModal.classList.remove('active');
+    const contactModal = document.getElementById('contactModal');
+    if (contactModal) contactModal.classList.remove('active');
+    const annotateModal = document.getElementById('annotateModal');
+    if (annotateModal) annotateModal.classList.remove('active');
+
+    // 4. Stop voice broadcast if active
+    if (typeof stopBroadcast === 'function' && typeof isBroadcasting !== 'undefined' && isBroadcasting) {
+        stopBroadcast();
+    }
+    if (typeof stopListening === 'function') {
+        stopListening();
+    }
+
+    // 5. Ensure the closed notice is shown in the chat (only if not already displayed)
+    if (!document.querySelector('.message-room-closed')) {
+        renderRoomClosedMessage();
+    }
+}
+
+function renderRoomClosedMessage() {
+    if (document.querySelector('.message-room-closed')) return;
+    const div = document.createElement('div');
+    div.className = 'message-room-closed';
+    div.innerHTML = '<span style="font-size:1.15rem; line-height:1;">🚫</span><span>ห้องนี้ถูกปิดตัวแล้ว! โปรดติดต่อที่ต้นทาง</span>';
+    messagesWrapper.appendChild(div);
+    scrollToBottom();
+}
+
+if (cancelContactBtn) {
+    cancelContactBtn.addEventListener('click', () => {
+        if (isRoomClosed) return;
+        if (cancelConfirmModal) {
+            cancelConfirmModal.classList.add('active');
+        }
+    });
+}
+
+if (closeCancelModalBtn) {
+    closeCancelModalBtn.addEventListener('click', () => {
+        if (cancelConfirmModal) cancelConfirmModal.classList.remove('active');
+    });
+}
+
+if (cancelModalDismissBtn) {
+    cancelModalDismissBtn.addEventListener('click', () => {
+        if (cancelConfirmModal) cancelConfirmModal.classList.remove('active');
+    });
+}
+
+if (confirmCancelContactBtn) {
+    confirmCancelContactBtn.addEventListener('click', async () => {
+        if (!currentRoom || isRoomClosed) return;
+        try {
+            confirmCancelContactBtn.disabled = true;
+            confirmCancelContactBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> กำลังปิดห้อง...';
+
+            // 1. Mark room as closed in Firebase
+            await set(ref(database, `rooms/${currentRoom}/closed`), {
+                isClosed: true,
+                closedBy: currentUser,
+                timestamp: Date.now()
+            });
+
+            // 2. Push closed notification message into chat history
+            const messagesRef = ref(database, `rooms/${currentRoom}/messages`);
+            await push(messagesRef, {
+                sender: currentUser,
+                type: 'closed',
+                text: '🚫ห้องนี้ถูกปิดตัวแล้ว! โปรดติดต่อที่ต้นทาง',
+                timestamp: Date.now()
+            });
+
+            if (cancelConfirmModal) cancelConfirmModal.classList.remove('active');
+            applyRoomClosedUI();
+        } catch (err) {
+            console.error('Failed to close room:', err);
+            alert('เกิดข้อผิดพลาดในการปิดห้อง กรุณาลองใหม่อีกครั้ง');
+        } finally {
+            confirmCancelContactBtn.disabled = false;
+            confirmCancelContactBtn.innerHTML = '<i class="fa-solid fa-ban"></i> ยืนยันปิดห้อง';
+        }
+    });
+}
+
 // ===== Change Room Button =====
 document.getElementById('changeRoomBtn').addEventListener('click', async () => {
     if (!currentRoom) return;
@@ -420,7 +569,7 @@ function initChatListeners() {
 
         // Play sound if a new message is received and it's not from me
         if (chatInitialized && data.sender !== currentUser) {
-            if (data.type === 'notification') {
+            if (data.type === 'notification' || data.type === 'closed') {
                 playAlarmBell();
             } else {
                 playSoftNotification();
@@ -521,6 +670,15 @@ function initChatListeners() {
             window.location.search = `?room=${data.newRoom}`;
         }
     });
+
+    // Listen for room closed
+    const roomClosedRef = ref(database, `rooms/${currentRoom}/closed`);
+    onValue(roomClosedRef, (snapshot) => {
+        const data = snapshot.val();
+        if (data && data.isClosed) {
+            applyRoomClosedUI();
+        }
+    });
 }
 
 // ---- Draw SVG Connecting Lines on Chat Problem Cards ----
@@ -600,6 +758,18 @@ function renderMessage(data, id) {
 
     const div = document.createElement('div');
     const isMe = data.sender === currentUser;
+
+    // Special handle for room closed message
+    if (data.type === 'closed' || (data.text && data.text.includes('ห้องนี้ถูกปิดตัวแล้ว! โปรดติดต่อที่ต้นทาง'))) {
+        if (document.querySelector('.message-room-closed')) return;
+        div.className = 'message-room-closed';
+        div.setAttribute('data-id', id);
+        div.setAttribute('data-timestamp', data.timestamp);
+        div.innerHTML = `<span style="font-size:1.15rem; line-height:1;">🚫</span><span>ห้องนี้ถูกปิดตัวแล้ว! โปรดติดต่อที่ต้นทาง</span>`;
+        messagesWrapper.appendChild(div);
+        scrollToBottom();
+        return;
+    }
 
     // Special handle for notification type
     if (data.type === 'notification') {
@@ -1044,6 +1214,7 @@ function updateMessageReadStatus(key, data) {
 }
 
 async function sendMessage(text = null, fileData = null) {
+    if (isRoomClosed) return;
     if (!text && !fileData) return;
     if (!currentRoom) return;
 
@@ -1057,6 +1228,7 @@ async function sendMessage(text = null, fileData = null) {
 }
 
 sendBtn.onclick = async () => {
+    if (isRoomClosed) return;
     const val = messageInput.value.trim();
 
     // Check if we have pending image data
@@ -1081,7 +1253,7 @@ messageInput.addEventListener('keydown', (e) => {
 
 // ===== Notification Logic =====
 notifyBtn.onclick = async () => {
-    if (!currentRoom) return;
+    if (isRoomClosed || !currentRoom) return;
 
     // Play alarm bell locally
     playAlarmBell();
@@ -1104,6 +1276,7 @@ notifyBtn.onclick = async () => {
 
 // ===== Consolidated Upload Logic =====
 function handleFileUpload(file) {
+    if (isRoomClosed) return;
     if (!currentRoom) {
         alert('กรุณาเข้าร่วมห้องแชทก่อน');
         return;
@@ -1127,8 +1300,12 @@ function handleFileUpload(file) {
 }
 
 // Attachment button near textarea
-inputAttachBtn.onclick = () => mainFileInput.click();
+inputAttachBtn.onclick = () => {
+    if (isRoomClosed) return;
+    mainFileInput.click();
+};
 mainFileInput.onchange = (e) => {
+    if (isRoomClosed) return;
     if (e.target.files[0]) handleFileUpload(e.target.files[0]);
     mainFileInput.value = '';
 };
@@ -1137,6 +1314,7 @@ mainFileInput.onchange = (e) => {
 let dragCounter = 0;
 chatDropZone.addEventListener('dragenter', (e) => {
     e.preventDefault();
+    if (isRoomClosed) return;
     dragCounter++;
     // แสดง overlay เฉพาะเมื่อลากไฟล์เข้ามา (ไม่ใช่ข้อความ)
     if (e.dataTransfer.types.includes('Files')) {
@@ -1158,6 +1336,7 @@ chatDropZone.addEventListener('drop', (e) => {
     e.preventDefault();
     dragCounter = 0;
     chatDropZone.classList.remove('dragging');
+    if (isRoomClosed) return;
 
     if (e.dataTransfer.files.length > 0) {
         handleFileUpload(e.dataTransfer.files[0]);
@@ -1176,6 +1355,7 @@ if (screenshotBtn) {
     let clipboardBefore = null; // เก็บ hash ของ clipboard ก่อนแคป เพื่อตรวจว่ามีภาพใหม่จริง
 
     screenshotBtn.addEventListener('click', async () => {
+        if (isRoomClosed) return;
         // จำ clipboard เดิมไว้ก่อน เพื่อเปรียบเทียบว่าได้ภาพใหม่จริง
         try {
             const beforeItems = await navigator.clipboard.read();
@@ -1464,6 +1644,10 @@ https://artnp.github.io/eworker
 
 // ===== Paste Event Handler for Images =====
 messageInput.addEventListener('paste', function (e) {
+    if (isRoomClosed) {
+        e.preventDefault();
+        return;
+    }
     const items = e.clipboardData.items;
 
     for (let i = 0; i < items.length; i++) {
@@ -2058,6 +2242,7 @@ function initVoiceListener() {
 // ===== Mic Button Click Handler =====
 if (micBtn) {
     micBtn.addEventListener('click', () => {
+        if (isRoomClosed) return;
         if (isBroadcasting) {
             stopBroadcast();
         } else {
@@ -2665,6 +2850,7 @@ if (annCardsList) annCardsList.addEventListener('scroll', scheduleArrowDraw);
 
 // ---- Send annotated image to chat ----
 annotateSendBtn.onclick = async () => {
+    if (isRoomClosed) return;
     if (!annotateSendBtn.classList.contains('ready')) return;
     if (!currentRoom) return;
 
