@@ -55,12 +55,6 @@
                             <button id="copyBtn">คัดลอก</button>
                         </div>
                     </div>
-                    <div class="chat-header-actions">
-                        <button id="cancelContactBtn" class="cancel-contact-btn" title="ยกเลิกการติดต่อและปิดห้อง">
-                            <i class="fa-solid fa-ban"></i>
-                            <span>ยกเลิกการติดต่อ</span>
-                        </button>
-                    </div>
                 </header>
 
                 <!-- Voice Broadcast Listener Bar -->
@@ -129,10 +123,16 @@
                                 </svg>
                             </button>
                         </div>
-                        <button id="changeRoomBtn" class="change-room-btn-outer" title="เปลี่ยนห้อง">
-                            <img src="https://cdn-icons-png.flaticon.com/128/6105/6105231.png" alt="เปลี่ยนห้อง">
-                            <span>พาเปลี่ยนห้อง</span>
-                        </button>
+                        <div id="roomActionButtons" class="room-action-buttons" style="display: none;">
+                            <button id="cancelContactBtn" class="cancel-contact-btn" title="ยกเลิกการติดต่อและปิดห้อง" style="display: none;">
+                                <i class="fa-solid fa-ban"></i>
+                                <span>ยกเลิกการติดต่อ</span>
+                            </button>
+                            <button id="changeRoomBtn" class="change-room-btn-outer" title="เปลี่ยนห้อง" style="display: none;">
+                                <img src="https://cdn-icons-png.flaticon.com/128/6105/6105231.png" alt="เปลี่ยนห้อง">
+                                <span>พาเปลี่ยนห้อง</span>
+                            </button>
+                        </div>
                     </div>
                     <input type="file" id="mainFileInput" hidden>
                 </div>
