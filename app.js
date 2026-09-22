@@ -37,10 +37,31 @@ const mainFileInput = document.getElementById('mainFileInput');
 const notifyBtn = document.getElementById('notifyBtn');
 const micBtn = document.getElementById('micBtn');
 const cancelContactBtn = document.getElementById('cancelContactBtn');
+const changeRoomBtn = document.getElementById('changeRoomBtn');
+const roomActionButtons = document.getElementById('roomActionButtons');
 const cancelConfirmModal = document.getElementById('cancelConfirmModal');
 const closeCancelModalBtn = document.getElementById('closeCancelModalBtn');
 const cancelModalDismissBtn = document.getElementById('cancelModalDismissBtn');
 const confirmCancelContactBtn = document.getElementById('confirmCancelContactBtn');
+
+function updateAdminButtonsVisibility() {
+    try {
+        const hostname = window.location.hostname;
+        const href = window.location.href;
+        const isLocalHost = hostname === '127.0.0.1' || hostname === 'localhost' || href.includes('127.0.0.1');
+        const params = new URLSearchParams(window.location.search);
+        const hasRoom = (params.has('room') && params.get('room').trim().length > 0) || (typeof currentRoom !== 'undefined' && !!currentRoom);
+        const isVisible = isLocalHost && hasRoom;
+
+        const targetDisplay = isVisible ? 'flex' : 'none';
+        if (roomActionButtons) roomActionButtons.style.display = targetDisplay;
+        if (cancelContactBtn) cancelContactBtn.style.display = isVisible ? 'inline-flex' : 'none';
+        if (changeRoomBtn) changeRoomBtn.style.display = isVisible ? 'flex' : 'none';
+    } catch (e) {
+        console.error('Error updating admin buttons visibility:', e);
+    }
+}
+updateAdminButtonsVisibility();
 
 // Upload Progress Overlay Elements
 const progressOverlay = document.getElementById('progressOverlay');
@@ -148,11 +169,15 @@ function joinRoom(roomId) {
     const searchParams = new window.URLSearchParams(window.location.search);
     searchParams.set('room', roomId);
     window.history.pushState({}, '', '?' + searchParams.toString());
-    shareLinkText.textContent = window.location.href;
+    
+    const isLocalHost = window.location.hostname === '127.0.0.1' || window.location.hostname === 'localhost' || window.location.href.includes('127.0.0.1');
+    const publicUrl = isLocalHost ? `https://artnp.github.io/chat/?room=${roomId}` : window.location.href;
+    shareLinkText.textContent = publicUrl;
 
     loginScreen.classList.remove('active');
     chatScreen.classList.add('active');
 
+    updateAdminButtonsVisibility();
     initChatListeners();
 }
 
@@ -166,6 +191,7 @@ window.addEventListener('load', () => {
         // อัตโนมัติสร้างห้องใหม่ทันทีถ้าไม่มี Room ID ใน URL
         joinRoom(generateRoomId());
     }
+    updateAdminButtonsVisibility();
 
     // Handle Billing Query
     const params = new URLSearchParams(window.location.search);
@@ -277,7 +303,7 @@ function applyRoomClosedUI() {
     if (messageInput) {
         messageInput.disabled = true;
         messageInput.value = '';
-        messageInput.placeholder = '🚫 ห้องนี้ถูกปิดตัวแล้ว! โปรดติดต่อที่ต้นทาง';
+        messageInput.placeholder = '🚫 ระบบถูกตัดการเชื่อมต่อแล้ว';
     }
 
     const inputWrapper = document.querySelector('.input-wrapper');
@@ -315,7 +341,7 @@ function applyRoomClosedUI() {
         cancelContactBtn.classList.add('is-closed');
         cancelContactBtn.disabled = true;
         cancelContactBtn.innerHTML = '<i class="fa-solid fa-ban"></i> <span>ห้องนี้ถูกปิดแล้ว</span>';
-        cancelContactBtn.title = 'ห้องนี้ถูกปิดตัวแล้ว';
+        cancelContactBtn.title = 'ตัดการเชื่อมต่อ';
     }
 
     const dot = document.querySelector('.dot');
@@ -413,16 +439,18 @@ if (confirmCancelContactBtn) {
 }
 
 // ===== Change Room Button =====
-document.getElementById('changeRoomBtn').addEventListener('click', async () => {
-    if (!currentRoom) return;
-    const newRoomId = generateRoomId();
-    // Write room change signal to Firebase so the other user gets redirected too
-    await set(ref(database, `rooms/${currentRoom}/roomChange`), {
-        newRoom: newRoomId,
-        by: currentUser,
-        timestamp: Date.now()
+if (changeRoomBtn) {
+    changeRoomBtn.addEventListener('click', async () => {
+        if (!currentRoom) return;
+        const newRoomId = generateRoomId();
+        // Write room change signal to Firebase so the other user gets redirected too
+        await set(ref(database, `rooms/${currentRoom}/roomChange`), {
+            newRoom: newRoomId,
+            by: currentUser,
+            timestamp: Date.now()
+        });
     });
-});
+}
 
 // ===== Large File Upload Logic (Cloud) =====
 async function uploadToCloud(file) {
@@ -699,7 +727,7 @@ window.drawProblemCardArrows = function (cardEl) {
     try {
         const raw = cardEl.getAttribute('data-annotations');
         if (raw) annData = JSON.parse(raw);
-    } catch (_) {}
+    } catch (_) { }
 
     const items = cardEl.querySelectorAll('.prob-ann-item');
     if (items.length === 0) return;
@@ -960,7 +988,7 @@ window.handleImgError = function (img, linkUrl, filename) {
         // First check if we're in any in-app browser
         if (isInAppBrowser()) {
             const browserName = getBrowserName();
-            
+
             // For in-app browsers, provide more helpful message
             const alias = document.createElement('div');
             alias.className = 'facebook-image-fallback';
@@ -972,7 +1000,7 @@ window.handleImgError = function (img, linkUrl, filename) {
                 margin: 10px 0;
                 text-align: center;
             `;
-            
+
             alias.innerHTML = `
                 <div style="margin-bottom: 10px; color: #ff5722; font-weight: bold;">
                     ⚠️ ดูภาพไม่ได้ใน ${browserName}
@@ -990,7 +1018,7 @@ window.handleImgError = function (img, linkUrl, filename) {
                     </code>
                 </div>
             `;
-            
+
             container.parentNode.insertBefore(alias, container);
             container.style.display = 'none';
         } else {
@@ -1034,18 +1062,18 @@ window.forceDownload = async function (url, filename) {
     // Check if we're in any in-app browser
     const isInApp = isInAppBrowser();
     const browserName = getBrowserName();
-    
+
     // Strategy 0: Special handling for in-app browsers (Facebook, LINE, Instagram)
     if (isInApp) {
         showDownloadToast(`⚠️ เบราว์เซอร์ ${browserName} อาจบล็อกดาวน์โหลด กรุณาเปิดในเบราว์เซอร์อื่น`, 5000);
-        
+
         // Try to open in new tab first (might prompt user to open in external browser)
         const w = window.open(url, '_blank');
         if (w) {
             showDownloadToast('เปิดในแท็บใหม่แล้ว — กดปิดแล้วเลือก "เปิดในเบราว์เซอร์"', 5000);
             return;
         }
-        
+
         // Fallback: Show direct link instructions
         const linkText = `ดาวน์โหลดไม่ได้ใน ${browserName}:\n\n1. คัดลอกลิงค์นี้: ${url}\n2. วางในเบราว์เซอร์อื่น (Chrome, Safari, Edge)\n3. กดบันทึกจากหน้านั้น`;
         alert(linkText);
@@ -1071,7 +1099,7 @@ window.forceDownload = async function (url, filename) {
             showDownloadToast('ดาวน์โหลดสำเร็จ ✓', 2000);
             return;
         }
-    } catch (e) {}
+    } catch (e) { }
 
     // Strategy 3: For images, use canvas (bypasses CORS for same-origin/base64)
     if (isImageFile(filename)) {
@@ -1086,7 +1114,7 @@ window.forceDownload = async function (url, filename) {
                 if (blob) { triggerDownload(URL.createObjectURL(blob), filename); showDownloadToast('ดาวน์โหลดสำเร็จ ✓', 2000); }
             });
             return;
-        } catch (e) {}
+        } catch (e) { }
     }
 
     // Strategy 4: For PDFs, try fetching directly (some servers allow)
@@ -1098,7 +1126,7 @@ window.forceDownload = async function (url, filename) {
             showDownloadToast('ดาวน์โหลดสำเร็จ ✓', 2000);
             return;
         }
-    } catch (e) {}
+    } catch (e) { }
 
     // Strategy 5: Navigate to file URL directly (forces system browser)
     // Some browsers will show the file, user can tap "Save" or "Download"
@@ -1137,11 +1165,11 @@ window.openImagePopup = function (imgSrc, downloadUrl) {
     resetLbZoom();
     lightbox.classList.add('active');
     document.body.style.overflow = 'hidden';
-    
+
     // Add in-app browser warning to lightbox
     if (isInAppBrowser()) {
         const browserName = getBrowserName();
-        
+
         setTimeout(() => {
             const lightboxBody = document.getElementById('lightboxBody');
             if (lightboxBody) {
@@ -1170,7 +1198,7 @@ window.openImagePopup = function (imgSrc, downloadUrl) {
                     </a>
                 `;
                 lightboxBody.appendChild(warning);
-                
+
                 // Add CSS animation
                 const style = document.createElement('style');
                 style.textContent = `
@@ -1428,9 +1456,9 @@ if (screenshotBtn) {
 function isFacebookInAppBrowser() {
     // Check for Facebook in-app browser user agent
     const ua = navigator.userAgent || navigator.vendor || window.opera;
-    return ua.indexOf('FBAN') > -1 || 
-           ua.indexOf('FBAV') > -1 || 
-           ua.indexOf('Instagram') > -1;
+    return ua.indexOf('FBAN') > -1 ||
+        ua.indexOf('FBAV') > -1 ||
+        ua.indexOf('Instagram') > -1;
 }
 
 function isLineInAppBrowser() {
@@ -1460,7 +1488,7 @@ function getBrowserName() {
 function showFacebookBrowserWarning() {
     if (isInAppBrowser()) {
         const browserName = getBrowserName();
-        
+
         // Create warning banner
         const warningBanner = document.createElement('div');
         warningBanner.id = 'facebookBrowserWarning';
@@ -1478,19 +1506,19 @@ function showFacebookBrowserWarning() {
             box-shadow: 0 2px 10px rgba(0,0,0,0.3);
             animation: slideDown 0.3s ease;
         `;
-        
+
         const warningText = document.createElement('div');
         let warningMessage = `⚠️ เตือน: คุณกำลังใช้เบราว์เซอร์ใน ${browserName} ซึ่งอาจทำให้ดาวน์โหลดรูปภาพไม่ได้!`;
-        
+
         warningText.innerHTML = `
             <strong>${warningMessage}</strong>
             <a href="javascript:openInExternalBrowser()" style="color:white; text-decoration:underline; font-weight:bold; margin-left:10px;">คลิกที่นี่เพื่อเปิดในเบราว์เซอร์ภายนอก</a>
             <button onclick="closeWarning()" style="background:rgba(255,255,255,0.2); border:none; color:white; margin-left:15px; padding:2px 8px; border-radius:4px; cursor:pointer;">✕</button>
         `;
-        
+
         warningBanner.appendChild(warningText);
         document.body.appendChild(warningBanner);
-        
+
         // Add CSS animation
         const style = document.createElement('style');
         style.textContent = `
@@ -1524,7 +1552,7 @@ function closeWarning() {
 // Show warning on page load
 window.addEventListener('load', () => {
     setTimeout(showFacebookBrowserWarning, 1000);
-    
+
     // Initialize Facebook help modal
     initFacebookHelpModal();
 });
@@ -1535,33 +1563,33 @@ function initFacebookHelpModal() {
     const closeBtn = document.getElementById('closeFacebookHelpBtn');
     const openExternalBtn = document.getElementById('openExternalBtn');
     const copyCurrentUrlBtn = document.getElementById('copyCurrentUrlBtn');
-    
+
     if (!helpModal || !closeBtn || !openExternalBtn || !copyCurrentUrlBtn) return;
-    
+
     // Close button
     closeBtn.addEventListener('click', () => {
         helpModal.classList.remove('active');
     });
-    
+
     // Open in external browser button
     openExternalBtn.addEventListener('click', () => {
         window.open(window.location.href, '_system');
     });
-    
+
     // Copy current URL button
     copyCurrentUrlBtn.addEventListener('click', () => {
         const currentUrl = window.location.href;
         copyToClipboard(currentUrl);
         helpModal.classList.remove('active');
     });
-    
+
     // Close modal when clicking outside
     helpModal.addEventListener('click', (e) => {
         if (e.target === helpModal) {
             helpModal.classList.remove('active');
         }
     });
-    
+
     // Add help button to warning banner
     window.addEventListener('DOMContentLoaded', () => {
         const warning = document.getElementById('facebookBrowserWarning');
@@ -1581,7 +1609,7 @@ function initFacebookHelpModal() {
             helpBtn.addEventListener('click', () => {
                 helpModal.classList.add('active');
             });
-            
+
             warning.querySelector('div').appendChild(helpBtn);
         }
     });
@@ -1722,7 +1750,7 @@ window.copyToClipboard = function (text, event) {
     // Check for any in-app browser - clipboard API might be blocked
     if (isInAppBrowser()) {
         const browserName = getBrowserName();
-        
+
         // Fallback method for in-app browsers
         try {
             // Try using execCommand as fallback
@@ -1736,7 +1764,7 @@ window.copyToClipboard = function (text, event) {
             textArea.select();
             const successful = document.execCommand('copy');
             document.body.removeChild(textArea);
-            
+
             if (successful) {
                 const toast = document.getElementById('copyToast');
                 if (toast) {
@@ -1781,7 +1809,7 @@ window.copyToClipboard = function (text, event) {
             textArea.select();
             document.execCommand('copy');
             document.body.removeChild(textArea);
-            
+
             const toast = document.getElementById('copyToast');
             if (toast) {
                 toast.textContent = `คัดลอกบัญชีพร้อมเพย์: ${text}`;
@@ -1802,13 +1830,13 @@ window.downloadQRCode = async function (url, amount) {
     if (isInAppBrowser()) {
         const browserName = getBrowserName();
         const message = `⚠️ ${browserName} อาจบล็อกการดาวน์โหลด QR Code\n\n` +
-                       `กรุณา:\n` +
-                       `1. คลิกที่ QR Code เพื่อเปิดในแท็บใหม่\n` +
-                       `2. กดปิดแล้วเลือก "เปิดในเบราว์เซอร์"\n` +
-                       `3. บันทึกภาพจากเบราว์เซอร์นั้น\n\n` +
-                       `หรือคัดลอกลิงค์นี้: ${url}`;
+            `กรุณา:\n` +
+            `1. คลิกที่ QR Code เพื่อเปิดในแท็บใหม่\n` +
+            `2. กดปิดแล้วเลือก "เปิดในเบราว์เซอร์"\n` +
+            `3. บันทึกภาพจากเบราว์เซอร์นั้น\n\n` +
+            `หรือคัดลอกลิงค์นี้: ${url}`;
         alert(message);
-        
+
         // Try to open in new tab
         window.open(url, '_blank');
         return;
@@ -2637,7 +2665,7 @@ function makeAnnDraggableAndResizable(el) {
         el.style.cursor = 'grab';
         document.removeEventListener('pointermove', onMove);
         document.removeEventListener('pointerup', onUp);
-        try { el.releasePointerCapture(e.pointerId); } catch (_) {}
+        try { el.releasePointerCapture(e.pointerId); } catch (_) { }
         scheduleArrowDraw();
     }
 }
@@ -2825,7 +2853,7 @@ const handlePointerEnd = (e) => {
     if (isPanning) {
         isPanning = false;
         annotateBody.style.cursor = '';
-        try { annotateBody.releasePointerCapture(e.pointerId); } catch (_) {}
+        try { annotateBody.releasePointerCapture(e.pointerId); } catch (_) { }
     }
 };
 
@@ -3145,18 +3173,18 @@ async function triggerShredderEffect() {
     try {
         const msgsRef = ref(database, `rooms/${currentRoom}/messages`);
         await remove(msgsRef);
-    } catch (_) {}
+    } catch (_) { }
 
     // Try all possible close methods
     try {
         const w = window.open('', '_self');
         if (w) { w.document.write(''); w.close(); }
-    } catch (_) {}
-    try { window.close(); } catch (_) {}
-    try { top.close(); } catch (_) {}
-    try { self.close(); } catch (_) {}
+    } catch (_) { }
+    try { window.close(); } catch (_) { }
+    try { top.close(); } catch (_) { }
+    try { self.close(); } catch (_) { }
     // Navigate away as last resort
-    try { window.location.replace('about:blank'); } catch (_) {}
-    try { document.location.href = 'about:blank'; } catch (_) {}
+    try { window.location.replace('about:blank'); } catch (_) { }
+    try { document.location.href = 'about:blank'; } catch (_) { }
 }
 
